@@ -4,34 +4,46 @@ var dragging = false;
 var allElements = [];
 var name_field;
 var scene = 1;
+var people;
+//go to  http://docs.mlab.com/ sign up and get get your own api Key and make your own db and collection
+var apiKey = "COrdiz9qAt5OlZOLRyoKaaaG-60PkkxN";
+var db = "osc";
+var coll = "osc_collection";
 
 function setup(){
   name_field = createInput("dan");
+  people = createSelect();
+  people.changed(pickedNewPerson);
+  //createP("Scenes");// just space out interface
+  createSpan(" Scenes:");
   var previous_button = createButton("PREVIOUS");
   previous_button.mousePressed(previous);
   scene_field = createInput(scene);
-  scene_field.attribute("width",3);
+
   var next_button = createButton("NEXT");
   next_button.mousePressed(next);
+
 
   var  c = createCanvas(window.innerWidth, window.innerHeight);
   c.id("myCanvas");
   $("#myCanvas").on("drop", drop);
   //preempt and take over what browser would ordinarily do about draggging
   $('#myCanvas').on("dragenter dragstart dragend dragleave dragover drag drop", function (e) {e.preventDefault();});
-  getOtherUsers();
+  listOfUsers();
+  getScene();
+
 }
 
 function previous(){
   scene = max(1,scene -1);
   scene_field.value(scene);
-  getOtherUsers()
+   getScene()
 }
 
 function next(){
   scene++;
   scene_field.value(scene);
-  getOtherUsers()
+   getScene()
 }
 
 function keyPressed(){
@@ -40,18 +52,18 @@ function keyPressed(){
     killIt(selectedElement);
     selectedElement.remove();
   } else if (keyCode == 187) { //"=" key
-    var s = selectedElement.size();
-    selectedElement.size(s.width+10, s.height +10);
-    saveIt(selectedElement);
-  } else if (keyCode == 189) { //"-" key
-    var s = selectedElement.size();
-    selectedElement.size(s.width-10, s.height -10);
-    saveIt(selectedElement);
-  }
+  var s = selectedElement.size();
+  selectedElement.size(s.width+10, s.height +10);
+  saveIt(selectedElement);
+} else if (keyCode == 189) { //"-" key
+var s = selectedElement.size();
+selectedElement.size(s.width-10, s.height -10);
+saveIt(selectedElement);
+}
 }
 function killIt(whichElement){
   var id = whichElement.id();
-  $.ajax( { url: "https://api.mlab.com/api/1/databases/osc/collections/osc_collection/" +  id + "?apiKey=COrdiz9qAt5OlZOLRyoKaaaG-60PkkxN",
+  $.ajax( { url: "https://api.mlab.com/api/1/databases/"+ db +"/collections/"+coll+"/" +  id + "?apiKey=" + apiKey,
   type: "DELETE",
   contentType: "application/json",
   success: function(data){console.log("saved" + data);},
@@ -60,6 +72,7 @@ function killIt(whichElement){
 
 }
 function saveIt(thisDomElement){
+  //serialize info
   var myName =  name_field.value() ;
   var thisElementArray = {}; //make an array for sending
   var dom_id = thisDomElement.id();
@@ -73,7 +86,7 @@ function saveIt(thisDomElement){
   thisElementArray.src = thisDomElement.attribute("src");
   var data = JSON.stringify(thisElementArray ) ;
   var query =  "q=" + JSON.stringify({_id:dom_id}) + "&";
-  $.ajax( { url: "https://api.mlab.com/api/1/databases/osc/collections/osc_collection?" +  query + "u=true&apiKey=COrdiz9qAt5OlZOLRyoKaaaG-60PkkxN",
+  $.ajax( { url: "https://api.mlab.com/api/1/databases/"+ db +"/collections/"+coll+"/?" +  query + "u=true&apiKey=" + apiKey,
   data: data,
   type: "PUT",
   contentType: "application/json",
@@ -82,15 +95,16 @@ function saveIt(thisDomElement){
 });
 }
 
-function getOtherUsers(){
-  //kill all the existing users
+function getScene(){
+  //kill all the existing elements
   for(var i = 0; i < allElements.length; i++){
     allElements[i].remove();
   }
+  //get all the info for this user and this scene
   var myName = name_field.value() ;
   var query = JSON.stringify({owner:myName, scene:scene});
 
-  $.ajax( { url: "https://api.mlab.com/api/1/databases/osc/collections/osc_collection?q=" + query +"&apiKey=COrdiz9qAt5OlZOLRyoKaaaG-60PkkxN",
+  $.ajax( { url: "https://api.mlab.com/api/1/databases/"+ db +"/collections/"+coll+"/?q=" + query +"&apiKey=" + apiKey,
   type: "GET",
   success: function (data){  //create the select ui element based on what came back from db
     $.each(data, function(index,obj){
@@ -117,6 +131,7 @@ function newElement(elementID,url,x,y,w,h){
     w = dom_element.size().width/2;  //pictures tend to be too big
     h = dom_element.size().height/2;
   }
+  //deserialize info
   selectedElement = dom_element;
   dom_element.id(elementID);
   dom_element.position(x,y);
@@ -138,4 +153,25 @@ function newElement(elementID,url,x,y,w,h){
   $('#'+elementID).on("dragenter dragstart dragend dragleave dragover drag drop", function (e) {e.preventDefault();});
   saveIt(dom_element);
   allElements.push(dom_element);
+}
+
+function listOfUsers(){
+  $.ajax( { url: "https://api.mlab.com/api/1/databases/"+ db + "/runCommand?apiKey=" + apiKey,
+  data: JSON.stringify( {"distinct": "osc_collection","key": "owner"} ),
+  type: "POST",
+  contentType: "application/json",
+  success: function(msg) {
+    var allPeople =  msg.values;
+    for(var i = 0; i < allPeople.length; i++){
+      people.option(allPeople[i]);
+
+    }
+  } } )
+}
+
+function pickedNewPerson() {
+  var newName= people.value();
+  name_field.value(newName);
+  scene = 1;
+  getScene();
 }
