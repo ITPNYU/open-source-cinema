@@ -48,6 +48,7 @@ function next(){
 
 function keyPressed(){
   //console.log(keyCode);
+  //delete things or make them bigger or smaller
   if(keyCode == 8){ //delete key
     killIt(selectedElement);
     selectedElement.remove();
@@ -62,6 +63,7 @@ saveIt(selectedElement);
 }
 }
 function killIt(whichElement){
+  //erase the last element you clicked on
   var id = whichElement.id();
   $.ajax( { url: "https://api.mlab.com/api/1/databases/"+ db +"/collections/"+coll+"/" +  id + "?apiKey=" + apiKey,
   type: "DELETE",
@@ -72,7 +74,7 @@ function killIt(whichElement){
 
 }
 function saveIt(thisDomElement){
-  //serialize info
+  //serialize info from dom element so you can send it to the database
   var myName =  name_field.value() ;
   var thisElementArray = {}; //make an array for sending
   var dom_id = thisDomElement.id();
@@ -100,7 +102,7 @@ function getScene(){
   for(var i = 0; i < allElements.length; i++){
     allElements[i].remove();
   }
-  //get all the info for this user and this scene
+  //get all the info for this user and this scene from the database
   var myName = name_field.value() ;
   var query = JSON.stringify({owner:myName, scene:scene});
 
@@ -115,6 +117,7 @@ function getScene(){
 }
 
 function drop(ev) {
+  //sucks the url out of what you dropped
   var data = ev.originalEvent.dataTransfer.getData('text/html');
   //use a regular expression to pull the url out of the the html for the thing they dropped
   var regexToken = /(((http|https?):\/\/)[\-\w@:%_\+.~#?,&\/\/=]+)|((mailto:)?[_.\w-]+@([\w][\w\-]+\.)+[a-zA-Z]{2,3})/g;
@@ -125,6 +128,7 @@ function drop(ev) {
 }
 
 function newElement(elementID,url,x,y,w,h){
+  //called either by dropping or pulling in elements from the database
   numberOfElements++;
   var dom_element = createImg(url);
   if (w == -1){  //just dropped
@@ -156,6 +160,7 @@ function newElement(elementID,url,x,y,w,h){
 }
 
 function listOfUsers(){
+  //ask for a list of distinct owners and add them to the pull down menu you made in setup
   $.ajax( { url: "https://api.mlab.com/api/1/databases/"+ db + "/runCommand?apiKey=" + apiKey,
   data: JSON.stringify( {"distinct": "osc_collection","key": "owner"} ),
   type: "POST",
