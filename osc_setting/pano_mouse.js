@@ -49,9 +49,5 @@ function computeCameraOrientation() {
   camera3D.target.y = 500 * Math.cos( phi );
   camera3D.target.z = 500 * Math.sin( phi ) * Math.sin( theta );
   camera3D.lookAt( camera3D.target );
-  /*
-  // distortion
-  camera3D.position.copy( camera3D.target ).negate();
-  */
 
 }
