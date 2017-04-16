@@ -80,7 +80,7 @@ function gotBody(data){
   var closestObject = checkIntersections();
   if (closestObject[0] != -1){
     //if they made a fist gesture
-    if(data.bodies[0].leftHandState == 3){
+    if(data.bodies[whichBody].leftHandState == 3){
       //console.log(closestObject);
       var closestObjectIndex = closestObject[0];
       selectedObject = objects[closestObjectIndex];
