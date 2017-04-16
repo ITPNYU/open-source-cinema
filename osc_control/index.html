@@ -24,6 +24,11 @@
   			a {
   				color: #ffffff;
   			}
+              #canvas1 {
+       display:none;
+                width:512;
+                height:512;
+     }
   		</style>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r75/three.min.js"></script>
     <script src="https://itp.nyu.edu/kinectron/kinectron.bundle.js" type="text/javascript"></script>
@@ -54,11 +59,11 @@
  <button onclick="stopRecord()"  id="stop_record">Stop Record</button>
     </div>
 
-    <canvas id="canvas1" style="visible:false"></canvas>
+    <canvas id="canvas1"></canvas>
     <script src="pano_mouse.js"></script>
     <script src="saving_stuff.js"></script>
     <script src="key.js"></script>
-    <script src="video.js"></script>
+   
     <script src="sketch.js"></script>
 
   </body>
