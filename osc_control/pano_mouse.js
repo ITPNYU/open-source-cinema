@@ -36,7 +36,6 @@ function onDocumentMouseMove( event ) {
 function onDocumentMouseUp( event ) {
   isUserInteracting = false;
   //saveCamera();
-
 }
 
 function onDocumentMouseWheel( event ) {
@@ -56,7 +55,6 @@ function computeCameraOrientation() {
   // distortion
   camera3D.position.copy( camera3D.target ).negate();
   */
-
 }
 
 
