@@ -19,19 +19,7 @@ var db = "osc";
 var coll = "osc_elements";
 
 
-function htmlInterface(){
-  //moved most of these out into html file instead of creating them in p5js
-  name_field = $("#name");
-  name_field.val("Dan");
-  scene_field = $("#sceneNum");
-  plot_point_field = $("#plot_point");
-  $("#previous").click(previous);
-  $("#next").click(next);
-  $("#previous_plot_point").click(previousPlotPoint);
-  $("#next_plot_point").click(nextPlotPoint);
-  scene_field.val(sceneNum);
-  plot_point_field.val(plotPoints[plotPoint]);
-}
+
 function nextPlotPoint(){
   plotPoint =  plotPoint + 1;
   plot_point_field.val(plotPoints[plotPoint]);
@@ -56,22 +44,20 @@ function next(){
   getScene()
 }
 
-function keyPressed(){
-   //opportunity for you to change the background?
-}
 
 function saveKeying(thisObj){
+      thisMesh = thisObj.getMesh();
       var myName =  name_field.val() ;
       var thisElementArray = {}; //make an array for sending
       thisElementArray.owner = myName;
       thisElementArray.type = "keying";
       thisElementArray.scene = sceneNum ;
-      thisElementArray.x = thisObj.position.x;
-      thisElementArray.y = thisObj.position.y;
-      thisElementArray.z = thisObj.position.z;
-      thisElementArray.rx = thisObj.rotation.x;
-      thisElementArray.ry = thisObj.rotation.y;
-      thisElementArray.rz = thisObj.rotation.z;
+      thisElementArray.x = thisMesh.position.x;
+      thisElementArray.y = thisMesh.position.y;
+      thisElementArray.z = thisMesh.position.z;
+      thisElementArray.rx = thisMesh.rotation.x;
+      thisElementArray.ry = thisMesh.rotation.y;
+      thisElementArray.rz = thisMesh.rotation.z;
       thisElementArray.plotPoint = plotPoints[plotPoint];
       var data = JSON.stringify(thisElementArray ) ;
 
