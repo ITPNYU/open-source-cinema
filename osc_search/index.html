@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+
+<html>
+<head>
+<!--<style>
+body { margin: 0; }
+canvas { width: 100%; height: 100% }
+</style>
+-->
+<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/0.5.7/p5.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/0.5.7/addons/p5.dom.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/0.5.7/addons/p5.sound.min.js"></script>
+
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/2.2.0/jquery.min.js"></script>
+<script src="https://code.jquery.com/ui/1.12.1/jquery-ui.js"></script>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r75/three.min.js"></script>
+
+
+</head>
+<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+		<style>
+			body {
+				background-color: #000000;
+				margin: 0px;
+				overflow: hidden;
+			}
+			#info {
+				position: absolute;
+				top: 0px; width: 100%;
+				color: #ffffff;
+				padding: 5px;
+				font-family:Monospace;
+				font-size:13px;
+				font-weight: bold;
+				text-align:center;
+			}
+			a {
+				color: #ffffff;
+			}
+			#add_text {
+							position: absolute;
+			}
+		</style>
+	</head>
+	<body>
+
+		<div id="container"></div>
+		<div id="info">
+ Name: <input type="text" id="name" > Other People: <select id="other_people"></select><br> <br>
+ <button type="button" id="previous">Previous Scene</button>  <input type="input" maxlength="3" style="text-align:center;" size="3"id="sceneNum" > <button type="button" id="next">Next Scene</button>
+<input type="input" maxlength="50" style="text-align:center;" size="50"id="add_text" >
+
+		</div>
+
+  <script src="pano_mouse.js"></script>
+  <script src="sketch.js"></script>
+
+
+
+</body>
+</html>
