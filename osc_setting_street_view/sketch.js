@@ -16,7 +16,9 @@
   var renderer ;
   var cube3D;
 
+
    var panorama;
+
   function setup(){
     htmlInterface();
     listOfUsers();
@@ -24,7 +26,7 @@
     getScene();
 
    activatePanoControl();
-   setUpStreetView();
+   //setUpStreetView();
   }
 
   function htmlInterface(){
@@ -37,20 +39,37 @@
     scene_field.val(sceneNum);
   }
 
-  function setUpStreetView(){
-    var fenway = {lat: 42.345573, lng: -71.098326};
+  function setUpStreetView(id,pov){
+  //  var fenway = {lat: 42.345573, lng: -71.098326};
+  if(id == null || pov== null){
+    var panoramaOptions = {
+        pano: 'bNIv-IzbktSb99JbNBv3mA',  // Wanted to demonstrate 'setPano' instead.
+        pov: {
+          heading: 34,
+          pitch: 10
+        }
+      };
+    }else{
+      var panoramaOptions = {
+          pano: id,  // Wanted to demonstrate 'setPano' instead.
+          pov: pov
+        };
+    }
 
-    panorama = new google.maps.StreetViewPanorama(
+
+      panorama = new google.maps.StreetViewPanorama(
+            document.getElementById('pano'), panoramaOptions );
+  /*  panorama = new google.maps.StreetViewPanorama(
         document.getElementById('pano'), {
           position: fenway,
           pov: {
             heading: 34,
             pitch: 10
           }
-        });
-
-
+        });*/
   }
+
+
 
   function setUp3D(){
     scene = new THREE.Scene();
@@ -105,6 +124,12 @@
 
 
   function saveCamera(){
+
+    var heading =    panorama.getPov();
+    console.log(heading);
+    var pos =panorama.getPano();
+    console.log(pos);
+
   			var myName =  name_field.val() ;
         var thisElementArray = {}; //make an array for sending
         thisElementArray.owner = myName;
@@ -112,6 +137,8 @@
         thisElementArray.scene = sceneNum ;
         thisElementArray.camera = camera3D.matrix.toArray();
         thisElementArray.cameraFOV = camera3D.fov; //camera3D.fov;
+        thisElementArray.panoID = panorama.getPano(); //camera3D.fov;
+        thisElementArray.panoPOV = panorama.getPov(); //camera3D.fov;
         var data = JSON.stringify(thisElementArray ) ;
 
         var query =  "q=" + JSON.stringify({type:"camera", scene:sceneNum}) + "&";
@@ -135,17 +162,22 @@
     $.ajax( { url: "https://api.mlab.com/api/1/databases/"+ db +"/collections/"+coll+"/?q=" + query +"&apiKey=" + apiKey,
     type: "GET",
     success: function (data){  //create the select ui element based on what came back from db
-      $.each(data, function(index,obj){
+      if (data.length == 0)     setUpStreetView(null,null); //use default portal into world for first time
+      for(var i = 0; i<data.length; i++){
+    //  $.each(data, function(index,obj){
+        var obj = data[i];
         if(obj.type == "camera"){
   				camera3D.matrix.fromArray(obj.camera); // set the camera using saved camera settings
   				camera3D.matrix.decompose(camera3D.position,camera3D.quaternion,camera3D.scale);
           camera3D.fov = obj.cameraFOV;
           camera3D.updateProjectionMatrix();
+          setUpStreetView(obj.panoID,obj.panoPOV);
         }else{
           //we will worry about elements next week
           //newElement(obj._id,obj.src,obj.x,obj.y,obj.width,obj.height);
+        }
       }
-      })
+      //})
     },
     contentType: "application/json" } );
   }
