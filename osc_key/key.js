@@ -1,6 +1,9 @@
 // Declare kinectron
 var kinectron = null;
-var kinectronIpAddress = "172.16.221.35"; // FILL IN YOUR KINECTRON IP ADDRESS HERE
+var kinectronIpAddress = "172.16.224.110"; // FILL IN YOUR KINECTRON IP ADDRESS HERE
+
+
+
 // Use two canvases to draw incoming feeds
 var canvas;
 var ctx;
@@ -19,6 +22,7 @@ function setupKey(){
   kinectron.startKey(gotKey);
   // Setup canvas and context
   canvas = document.getElementById('canvas1');
+//  canvas.style.display="none";
   canvas.width = CANVW;
   canvas.height = CANVH;
   ctx = canvas.getContext('2d');
@@ -38,21 +42,25 @@ function setupKey(){
 }
 
 function gotKey(data) {
-  // Image data needs to be draw to img element before canvas
-  //  console.log(data);
-  var img1 = new Image;
 
-  img1.src = data.src; 
+var img1 = new Image;
+img1.src = data.src;
 
-  img1.onload = function () {
-    ctx.clearRect(0,0, CANVW, CANVH);
-    ctx.drawImage(data,0,0, CANVW, CANVH);
-  };
+img1.onload = function () {
+  ctx.clearRect(0,0, CANVW, CANVH);
+  ctx.drawImage(data,0,0, CANVW, CANVH);
+};
 
+ createImg(data.src);
+ ctx.clearRect(0,0, CANVW, CANVH);
+ ctx.drawImage(data,0,0, CANVW, CANVH);
 }
+
+
 
 function animateKey(){
   green_screen_texture.needsUpdate = true;
+  renderedLastFrame = true;
 }
 
 function startRecord(){
