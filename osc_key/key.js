@@ -1,6 +1,6 @@
 // Declare kinectron
 var kinectron = null;
-var kinectronIpAddress = "172.16.220.236"; // FILL IN YOUR KINECTRON IP ADDRESS HERE
+var kinectronIpAddress = "172.16.221.35"; // FILL IN YOUR KINECTRON IP ADDRESS HERE
 // Use two canvases to draw incoming feeds
 var canvas;
 var ctx;
@@ -41,8 +41,13 @@ function gotKey(data) {
   // Image data needs to be draw to img element before canvas
   //  console.log(data);
   var img1 = new Image;
-  ctx.clearRect(0,0, CANVW, CANVH);
-  ctx.drawImage(data,0,0, CANVW, CANVH);
+
+  img1.src = data.src; 
+
+  img1.onload = function () {
+    ctx.clearRect(0,0, CANVW, CANVH);
+    ctx.drawImage(data,0,0, CANVW, CANVH);
+  };
 
 }
 
