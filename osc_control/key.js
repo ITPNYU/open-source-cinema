@@ -1,4 +1,3 @@
-
 function kinectronKey(x,y,z){// Use two canvases to draw incoming feeds
 
   // Setup canvas and context
@@ -6,13 +5,13 @@ function kinectronKey(x,y,z){// Use two canvases to draw incoming feeds
   //  this.canvas = $('<canvas/>',{'class':'kinectScratchPad'}).width(512).height(512);
   this.canvas = document.getElementById('canvas1');
 
- this.canvas.width = 512;
+  this.canvas.width = 512;
   this.canvas.height = 512;
 //  this.canvas.display = "none";
   //this.canvas.visible = false;
 
+  this.canvas = document.getElementById('canvas1');
   this.ctx = this.canvas.getContext('2d');
-
   this.geo = new THREE.PlaneGeometry(100,100);
   this.green_screen_texture = new THREE.Texture(this.canvas);  //make this global because you have to update it
 
@@ -34,20 +33,7 @@ function kinectronKey(x,y,z){// Use two canvases to draw incoming feeds
 
   };
 
-  this.gotKey = function(data){
-    //this is called when kinectron has a keyed image to display
-    // Image data needs to be draw to img element before canvas
-    //might have to add this style in some chrome browsers
-    /*var newImg = new Image();
-    newImg.src = data; // image data from kinectron
 
-    newImg.onload = function () { //needs onload function
-      this.ctx.clearRect(0, 0, hiddenContext.canvas.width, hiddenContext.canvas.height);
-      this.ctx.drawImage(newImg, 0, 0);
-    }*/
-     this.ctx.clearRect(0,0, 512, 512);
-    this.ctx.drawImage(data, 0,0, 512, 512);
-  };
 
 
 };

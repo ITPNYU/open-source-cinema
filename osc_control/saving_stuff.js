@@ -46,7 +46,7 @@ function next(){
 
 
 function saveKeying(thisObj){
-      thisMesh = thisObj.getMesh();
+      thisMesh = thisObj;
       var myName =  name_field.val() ;
       var thisElementArray = {}; //make an array for sending
       thisElementArray.owner = myName;
