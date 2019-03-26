@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<!--derived from this sample https://github.com/googlevr/poly-sample-web/archive/master.zip
+ from this page https://developers.google.com/poly/develop/web-->
+<html lang="en">
+	<head>
+		<title></title>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+		<style>
+			html {
+				height: 100%;
+			}
+			body {
+				height: 100%;
+				font-family: sans-serif;
+				line-height: 24px;
+			}
+			#search {
+				position: absolute;
+				width: 100%;
+				height: 34px;
+				text-align: center;
+			}
+			#search * {
+					font-size: 18px;
+					text-transform: uppercase;
+			}
+			#viewer {
+				position: absolute;
+				top: 40px;
+				left: 8px;
+				right: 8px;
+				bottom: 72px;
+			}
+			#info {
+				position: absolute;
+				bottom: 10px;
+				left: 340px;
+				right: 0px;
+				padding-top: 6px;
+				text-align: center;
+			}
+			#asset_name {
+				font-size: 22px;
+				font-weight: bold;
+			}
+			#asset_author {
+				color: #888;
+			}
+		</style>
+	</head>
+	<body>
+
+		<form id="search">
+			<input id="query" value="poly"></input>
+			<button id="button">search</button>
+		</form>
+	
+		<span id="viewer"></span>
+		<div id="info">
+			<span id="asset_name">Title</span><br/>
+			by <span id="asset_author">Author</span>
+		</div>
+
+		<script src="third_party/three.js/js/three.min.js"></script>
+		<script src="third_party/three.js/js/OBJLoader.js"></script>
+		<script src="third_party/three.js/js/MTLLoader.js"></script>
+		<script>
+        
+        //attach listener to the search button
+        search.addEventListener( 'submit', function ( event ) {
+				event.preventDefault()
+				searchPoly( query.value );
+			} );
+
+    
+        // POLY REST API
+        const API_KEY = 'AIzaSyBi_F0gaMWtXi8Ngerunlwe1vRFkjy8cdI';
+
+        //ALL THE three.js stuff
+        var camera;
+        var renderer;
+        var container;
+        var scene;
+
+        // THREE.JS VIEWER
+        const WIDTH = viewer.offsetWidth;
+        const HEIGHT = viewer.offsetHeight;
+
+        camera = new THREE.PerspectiveCamera( 60, WIDTH / HEIGHT, 0.01, 100 );
+        camera.position.set( 5, 3, 5 );
+        camera.lookAt( 0, 1.5, 0 );
+
+        var scene = new THREE.Scene();
+        scene.background = new THREE.Color( 0x222222 );
+
+        scene.add( new THREE.GridHelper( 10, 10 ) );
+
+        var ambient = new THREE.HemisphereLight( 0xbbbbff, 0x886666, 0.75 );
+        ambient.position.set( -0.5, 0.75, -1 );
+        scene.add( ambient );
+
+        var light = new THREE.DirectionalLight( 0xffffff, 0.75 );
+        light.position.set( 1, 0.75, 0.5 );
+        scene.add( light );
+
+        container = new THREE.Group();
+        scene.add( container );
+
+        renderer = new THREE.WebGLRenderer();
+        renderer.setPixelRatio( window.devicePixelRatio );
+        renderer.setSize( WIDTH, HEIGHT );
+        viewer.appendChild( renderer.domElement );
+        
+
+        function animate() {
+
+            var time = performance.now() / 5000;
+
+            camera.position.x = Math.sin( time ) * 5;
+            camera.position.z = Math.cos( time ) * 5;
+            camera.lookAt( 0, 1.5, 0 );
+
+            renderer.render( scene, camera );
+            requestAnimationFrame( animate );
+
+        }
+        requestAnimationFrame( animate );
+
+		function searchPoly( keywords ) {
+				var url = `https://poly.googleapis.com/v1/assets?keywords=${keywords}&format=OBJ&key=${API_KEY}`;
+				var request = new XMLHttpRequest();
+				request.open( 'GET', url, true );
+				request.addEventListener( 'load', function ( event ) {
+
+					var data =  JSON.parse( event.target.response ) ;
+					var assets = data.assets;
+
+					if ( assets ) {
+						//for ( var i = 0; i < assets.length; i ++ ) {
+                        var asset = assets[ 0];
+						while ( container.children.length ) { //clear out previoius
+							container.remove( container.children[ 0 ] );
+						}
+                        createObject(asset);
+				} else {
+					results.innerHTML = '<center>NO RESULTS</center>';
+				}
+				} );
+				request.send( null );
+
+			}
+
+		
+            function createObject(asset){
+                asset_name.textContent = asset.displayName;
+                asset_author.textContent = asset.authorName;
+                var format = asset.formats.find( format => { return format.formatType === 'OBJ'; } );
+
+                if ( format !== undefined ) {
+                    var obj = format.root;
+                    var mtl = format.resources.find( resource => { return resource.url.endsWith( 'mtl' ) } );
+
+                    var path = obj.url.slice( 0, obj.url.indexOf( obj.relativePath ) );
+
+                    var loader = new THREE.MTLLoader();
+                    loader.setCrossOrigin( true );
+                    loader.setMaterialOptions( { ignoreZeroRGBs: true } );
+                    loader.setTexturePath( path );
+                    loader.load( mtl.url, function ( materials ) {
+                        var loader = new THREE.OBJLoader();
+                        loader.setMaterials( materials );
+                        loader.load( obj.url, function ( object ) {
+
+                            var box = new THREE.Box3();
+                            box.setFromObject( object );
+
+                            // re-center
+
+                            var center = box.getCenter();
+                            center.y = box.min.y;
+                            object.position.sub( center );
+
+                            // scale
+
+                            var scaler = new THREE.Group();
+                            scaler.add( object );
+                            scaler.scale.setScalar( 6 / box.getSize().length() );
+                            container.add( scaler );
+
+                        } );
+
+                    } );
+
+                }
+            }
+		</script>
+	</body>
+</html>

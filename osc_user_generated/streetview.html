@@ -1,0 +1,76 @@
+
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>Background</title>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/2.2.0/jquery.min.js"></script>
+    <style>
+      html, body {
+        height: 100%;
+        margin: 0;
+        padding: 0;
+      }
+      #map, #pano {
+        float: left;
+        height: 90%;
+        width: 100%;
+      }
+    </style>
+  </head>
+  <body>
+    
+        PLACE: <input type="text" id="place" >  <button type="button" id="go">GO</button>  <br>
+
+    <div id="pano"></div>
+    
+    <script>
+        
+        $("#go").click(askForLatLong);
+        var api_key = "AIzaSyBi_F0gaMWtXi8Ngerunlwe1vRFkjy8cdI";
+          
+        function askForLatLong(){
+            console.log("asking");
+            var query = $("#place").val();
+var url = "https://cors-anywhere.herokuapp.com/https://maps.googleapis.com/maps/api/geocode/json?address="+  query + "&key=" + api_key;
+ console.log(url);
+            $.ajax( { 
+            url: url,
+            type: "POST",
+            contentType: "application/json",
+            success: function(data){
+                console.log(data);
+                var lat = data.results[0].geometry.location.lat;
+                var lng = data.results[0].geometry.location.lng;
+                newLoc = {};
+                newLoc.lat = lat;
+                newLoc.lng = lng;
+                console.log(newLoc);
+                initialize(newLoc);
+            
+            },
+            failure: function(data){  console.log("didn't find place" );}
+            });
+        }
+
+      function initialize(loc) {
+        if (! loc){
+            var loc = {lat: 42.345573, lng: -71.098326};
+        }
+
+        var panorama = new google.maps.StreetViewPanorama(
+            document.getElementById('pano'), {
+              position: loc,
+              pov: {
+                heading: 34,
+                pitch: 10
+              }
+            });
+        //map.setStreetView(panorama);
+      }
+    </script>
+    <script async defer
+        src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBi_F0gaMWtXi8Ngerunlwe1vRFkjy8cdI&callback=initialize">
+    </script>
+     
+  </body>
+</html>
