@@ -22,13 +22,14 @@
   </head>
   <body>
     
-        PLACE: <input type="text" id="place" >  <button type="button" id="go">GO</button>  <br>
+        PLACE: <input type="text" id="place" >  <button type="button" id="go">GO</button>  <br><button type="button" id="save">SAVE</button>  <br>
 
     <div id="pano"></div>
     
     <script>
         
         $("#go").click(askForLatLong);
+        $("#save").click(saveIt);
         var api_key = "AIzaSyBi_F0gaMWtXi8Ngerunlwe1vRFkjy8cdI";
           
         function askForLatLong(){
@@ -54,7 +55,18 @@ var url = "https://cors-anywhere.herokuapp.com/https://maps.googleapis.com/maps/
             failure: function(data){  console.log("didn't find place" );}
             });
         }
+      function saveIt() {
+        console.log("saved it");
+        saveFrames('out', 'png');
+       
+      }
 
+      function setup(){
+
+      }
+      function draw(){
+        
+      }
       function initialize(loc) {
         if (! loc){
             var loc = {lat: 42.345573, lng: -71.098326};
@@ -70,10 +82,7 @@ var url = "https://cors-anywhere.herokuapp.com/https://maps.googleapis.com/maps/
             });
         //map.setStreetView(panorama);
       }
-      function mousePressed() {
-        saveFrames('out', 'png');
-        console.log("saved it");
-      }
+  
     </script>
     <script async defer
         src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBi_F0gaMWtXi8Ngerunlwe1vRFkjy8cdI&callback=initialize">
