@@ -1,0 +1,313 @@
+<html>
+
+<head>
+    <title>Multimedia Three.js</title>
+
+
+    <style>
+        body {
+            background-color: #000000;
+            margin: 0px;
+            overflow: hidden;
+        }
+
+        #pano {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 1600px;
+            height: 900px;
+            z-index: 0;
+        }
+
+        #container {
+            pointer-events: none; //send events to the div "pano" div below
+            position: absolute;
+            top: 0;
+            z-index: 1;
+            position: absolute;
+            background-color: transparent;
+            //opacity: .7;
+        }
+
+        #info {
+            position: absolute;
+            top: 0px;
+            width: 100%;
+            color: #ffffff;
+            padding: 5px;
+            font-family: Monospace;
+            font-size: 13px;
+            font-weight: bold;
+            text-align: center;
+            z-index: 2;
+        }
+
+        a {
+            color: #ffffff;
+        }
+    </style>
+
+</head>
+<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+
+
+<body>
+    <div id="info">
+        Poly:<input type="input" style="text-align:center;" value="cat" size="15"id="poly" >
+        <br> <br>
+        Text: <input type="text" id="text" >
+    </div>
+    <div id='container'></div>
+    <div id="pano"></div>
+    <video id="video" playsinline style="display: none;"></video>
+    <canvas id='transparent' width='640' height='512'></canvas>
+    <canvas id='canvas' width='512' height='512' style="display: none;"></canvas>
+    <p id='status'></p>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/0.5.7/p5.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/0.5.7/addons/p5.dom.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/0.5.7/addons/p5.sound.min.js"></script>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/2.2.0/jquery.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/102/three.min.js"></script>
+    <script src="https://threejs.org/examples/js/loaders/OBJLoader.js"></script>
+    <script src="https://threejs.org/examples/js/loaders/MTLLoader.js"></script>
+
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/body-pix"></script>
+
+    <script src="P5Sketch.js"></script>
+    <script src="pano_mouse.js"></script>
+    <script src="bodyPixFancyCanvas.js"></script>
+    <script async defer
+        src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBi_F0gaMWtXi8Ngerunlwe1vRFkjy8cdI&callback=initializeGoogleMaps">
+        </script>
+    <script>
+        var scene = new THREE.Scene();
+        var camera3D = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        var p5Texture;
+        var bodySketch;
+        var polyContainer;
+        var textMesh;
+        polyContainer = new THREE.Group();
+
+        scene.add(polyContainer);
+
+
+        var renderer = new THREE.WebGLRenderer({ alpha: true });
+
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        // document.body.appendChild(renderer.domElement);
+        document.getElementById('container').appendChild(renderer.domElement);
+        var geometry = new THREE.BoxGeometry(20, 20, 20);
+        var material = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+        var cube = new THREE.Mesh(geometry, material);
+        scene.add(cube);
+
+        camera3D.position.z = 50;
+        var ambient = new THREE.HemisphereLight(0xbbbbff, 0x886666, 0.75);
+        ambient.position.set(-0.5, 0.75, -1);
+        scene.add(ambient);
+
+        var light = new THREE.DirectionalLight(0xffffff, 0.75);
+        light.position.set(1, 0.75, 0.5);
+        scene.add(light);
+/*
+        //create a sphere to put the panoramic video on
+        var geometry = new THREE.SphereGeometry(500, 60, 40);
+        geometry.scale(-1, 1, 1);
+        var material = new THREE.MeshBasicMaterial({
+            map: new THREE.TextureLoader().load('ruin.jpg')
+        });
+        var mesh = new THREE.Mesh(geometry, material);
+        scene.add(mesh);
+*/
+
+        textMesh = createNewText("sythesis", 0, 0, 0, 0, 0, 0);
+        scene.add(textMesh);
+
+        function init() {
+            ///UI
+            $("#poly").change(function(){ searchPoly($("#poly").val()); });
+            
+            $("#text").change(function(){ textMesh = createNewText($("#text").val(), 0, 0, 0, 0, 0, 0); scene.add(textMesh);});
+            //document.addEventListener( 'mousedown', onDocumentMouseDownCheckObject, false); //check for clicks
+            activatePanoControl(camera3D); //field mouse dragggin to move camera
+            searchPoly("butter");
+            initializeGoogleMaps();
+        }
+
+        var animate = function () {
+            requestAnimationFrame(animate);
+
+            cube.rotation.x += 0.01;
+            cube.rotation.y += 0.01;
+            cube.position.z -= 1;
+            if (cube.position.z < -200) cube.position.z = 200;
+
+            if (p5Texture) {
+                // draw_particles();
+                p5Texture.needsUpdate = true;
+            }
+            if (bodySketch) {
+                //updateBodyPix();
+                bodySketch.needsUpdate = true;
+            }
+            polyContainer.position.z = polyContainer.position.z + 1;
+            if (polyContainer.position.z > 100) polyContainer.position.z = -100;
+            renderer.render(scene, camera3D);
+
+            textMesh.position.x = textMesh.position.x + 1;
+            if (textMesh.position.x > 100) textMesh.position.x = -100;
+        };
+
+        animate();
+        init();
+
+        function initializeGoogleMaps(loc) {
+            /*
+            console.log("load google maps")
+            if (!loc) {
+                var loc = { lat: 42.345573, lng: -71.098326 };
+            }
+
+            var panorama = new google.maps.StreetViewPanorama(
+                document.getElementById('pano'), {
+                    position: loc,
+                    pov: {
+                        heading: 34,
+                        pitch: 10
+                    }
+                });
+            //map.setStreetView(panorama);
+            */
+        }
+        function sendTextureToThree(c) {
+            ////PUT IN A P5 SKETCH USING THE CANVAS MADE IN P5 AS A TEXTURE
+            console.log("loaded bodyPix");
+            geo = new THREE.PlaneGeometry(640, 480);
+            bodySketch = new THREE.Texture(c);
+            mat = new THREE.MeshBasicMaterial({ map: bodySketch, transparent: true, side: THREE.DoubleSide });
+            var plane = new THREE.Mesh(geo, mat);
+            plane.position.x = -400
+            plane.position.y = -400
+            plane.position.z = -100;
+            plane.rotation.x = 0;  //-Math.PI/2;
+            plane.rotation.y = 0; //-Math.PI/2;
+            plane.scale.set(2, 2, 2);
+            scene.add(plane);
+        }
+        function loadP5Sketch(p5Canvas) {
+            ////PUT IN A P5 SKETCH USING THE CANVAS MADE IN P5 AS A TEXTURE
+            console.log("loaded Particle system");
+            geo = new THREE.PlaneGeometry(512, 312);
+            p5Texture = new THREE.Texture(p5Canvas);
+            mat = new THREE.MeshBasicMaterial({ map: p5Texture, transparent: true, opacity: 1, side: THREE.DoubleSide });
+            var plane = new THREE.Mesh(geo, mat);
+            plane.position.y = -0;
+            plane.position.z = -200;
+            plane.rotation.x = -0;  //-Math.PI/2;
+            plane.rotation.y = 0; //-Math.PI/2;
+            plane.scale.set(1, 1, 1);
+            scene.add(plane);
+        }
+        function searchPoly(keywords) {
+            const API_KEY = 'AIzaSyBi_F0gaMWtXi8Ngerunlwe1vRFkjy8cdI';
+            var url = `https://poly.googleapis.com/v1/assets?keywords=${keywords}&format=OBJ&key=${API_KEY}`;
+            var request = new XMLHttpRequest();
+            request.open('GET', url, true);
+            request.addEventListener('load', function (event) {
+                var data = JSON.parse(event.target.response);
+                var assets = data.assets;
+                if (assets) {
+                    //for ( var i = 0; i < assets.length; i ++ ) {
+                    var asset = assets[0];
+                    while (polyContainer.children.length) { //clear out previoius
+                        polyContainer.remove(polyContainer.children[0]);
+                    }
+                    createObject(asset);
+                } else {
+                    results.innerHTML = '<center>NO RESULTS</center>';
+                }
+            });
+            request.send(null);
+        }
+        function createNewText(text, x, y, z, rx, ry, rz) {
+            var canvas = document.createElement("canvas");
+            canvas.width = 256;
+            canvas.height = 128;
+            var context = canvas.getContext("2d");
+            context.clearRect(0, 0, canvas.width, canvas.height);
+            var fontSize = Math.max(camera3D.fov / 2, 72);
+            context.font = fontSize + "pt Arial";
+            context.textAlign = "center";
+            context.fillStyle = "white";
+            context.fillText(text, canvas.width / 2, canvas.height / 2);
+            var textTexture = new THREE.Texture(canvas);
+            textTexture.needsUpdate = true;
+            var material = new THREE.MeshBasicMaterial({ map: textTexture, transparent: true });
+            var mesh = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), material);
+            //copy the little green (invisible? ) box that you added to follow camera
+            mesh.position.x = x;
+            mesh.position.y = y;
+            mesh.position.z = z;
+            mesh.rotation.x = rx;
+            mesh.rotation.y = ry;
+            mesh.rotation.z = rz;
+            mesh.scale.set(5, 5, 5);
+            return mesh;
+        }
+        function createObject(asset) {
+
+            //asset_name.textContent = asset.displayName;
+            //asset_author.textContent = asset.authorName;
+            var format = asset.formats.find(format => { return format.formatType === 'OBJ'; });
+
+            if (format !== undefined) {
+                var obj = format.root;
+                var mtl = format.resources.find(resource => { return resource.url.endsWith('mtl') });
+
+                var path = obj.url.slice(0, obj.url.indexOf(obj.relativePath));
+
+                var loader = new THREE.MTLLoader();
+                loader.setCrossOrigin(true);
+                loader.setMaterialOptions({ ignoreZeroRGBs: true });
+                loader.setResourcePath(path);
+                loader.load(mtl.url, function (materials) {
+                    var loader = new THREE.OBJLoader();
+
+                    loader.setMaterials(materials);
+                    loader.load(obj.url, function (object) {
+
+                        var box = new THREE.Box3();
+                        box.setFromObject(object);
+
+                        // re-center
+
+                        var center = box.getCenter();
+                        center.y = box.min.y;
+                        object.position.sub(center);
+
+                        // scale
+
+                        var scaler = new THREE.Group();
+                        scaler.add(object);
+                        scaler.scale.setScalar(30 / box.getSize().length());
+                        polyContainer.add(scaler);
+
+                    });
+
+                });
+
+            }
+
+        }
+
+
+    </script>
+
+
+
+</body>
+
+</html>
