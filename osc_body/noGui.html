@@ -1,0 +1,417 @@
+<html>
+
+<head>
+    <title>No GUI</title>
+    <style>
+        body {
+            background-color: #000000;
+            margin: 0px;
+            overflow: hidden;
+        }
+
+        #container {}
+    </style>
+
+</head>
+<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+
+
+<body>
+
+    <!--These are the main divs for three.js and street view-->
+    <div id='container'></div>
+
+    <!--Here all the p5, three.js, jquery, tensorflow(masking) libaries.  Coming from http CDN addresses allows us to share this code
+    without sharing the files for the libaries-->
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/0.7.3/p5.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/0.7.3/addons/p5.dom.min.js"></script>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/102/three.min.js"></script>
+    <script src="https://threejs.org/examples/js/effects/StereoEffect.js"></script>
+    <script src="https://threejs.org/examples/js/loaders/OBJLoader.js"></script>
+    <script src="https://threejs.org/examples/js/loaders/MTLLoader.js"></script>
+    <script src="https://threejs.org/examples/js/controls/DeviceOrientationControls.js"></script>
+
+    <script src="https://unpkg.com/ml5@0.2.2/dist/ml5.min.js" type="text/javascript"></script>
+
+    <!-- This is all of our local code-->
+    <script src="pano_mouse.js"></script>
+    <script src="p5.speech.js"></script>
+
+
+    <p id='status'>Loading model...</p>
+    <!-- Instead of having a separate js file the main javascript is added using script tags-->
+    <script>
+
+        let scene;
+        let camera3D;
+        let renderer;
+        let myRec;
+        let video;
+        let poseNet;
+        let poses = [];
+        let selectableMeshes = [];  //two cubes?
+        let selectedMesh;
+        let vrHeadSet = false;
+        let controls;
+        let poseNetProxy;
+        let wordsOrObjects = "words";
+        let things = [];
+
+        //like draw
+        var animate = function () {
+            //recursively call this function is a way that the renderer does it in a smart way
+            requestAnimationFrame(animate);
+            if (poses.length > 0) {
+                //find the right wrist locations from posenet
+                let x = ((640 - poses[0].pose.rightWrist.x) - 320);
+                let y = ((480 - poses[0].pose.rightWrist.y) - 240);
+                checkIfOverObject(x / 320, y / 240);
+                poseNetProxy.position.x = x;
+                poseNetProxy.position.y = y;
+            }
+            if (selectedMesh) {
+                selectedMesh.rotation.x += .1;
+            }
+            //animate the things in the things array
+            for (var i = 0; i < things.length; i++) {
+                things[i].position.z -= 1;
+                if (things[i].position.z < -400) {
+                    things[i].position.z = 400;
+                }
+            }
+            if (vrHeadSet) {
+                controls.update();
+                effect.render(scene, camera3D);
+            } else {
+                renderer.render(scene, camera3D);
+            }
+            if (camera3D.rotation.z > 0) {
+                wordsOrObjects = "objects";
+            } else {
+                wordsOrObjects = "words";
+            }
+
+        };
+
+        function setup() {
+            //same as init but some p5 stuff needs to be called from setup
+            console.log("setup  ");
+            setupSpeech();
+            setupPoseNet();
+        }
+
+        //like setup
+        function init() {
+            console.log("initializing three.js")
+            basic3DStuff()
+            checkVRStuff();
+            addSomeCubes();
+            createPanoramicBackgroundInThreeJS();
+
+            //allow mouse to control camera
+            activatePanoControl(camera3D); //field mouse dragggin to move camera
+
+            //loadModel('/osc_body/obj/female02/female02.obj', -90,0,0);
+            //loadModel('/osc_body/obj/male02/male02.obj', 90, 0, 0);
+
+            //allow clicking with mouse on objects
+            document.addEventListener('mousedown', onDocumentMouseDownCheckObject, false); //check for clicks
+        }
+
+        init();  //like setup but you have to call it yourself
+        animate();  //like draw you have to kick start and then it calls itself
+
+        function checkVRStuff() {
+            if (vrHeadSet) {
+                //for VR headset
+                controls = new THREE.DeviceOrientationControls(camera3D);
+                var effect = new THREE.StereoEffect(renderer);
+                effect.eyeSeparation = .1;
+                if (renderer.domElement.mozRequestFullScreen) {
+                    renderer.domElement.mozRequestFullScreen();
+                } else if (renderer.domElement.webkitRequestFullscreen) {
+                    renderer.domElement.webkitRequestFullscreen();
+                }
+                effect.setSize(window.innerWidth, window.innerHeight);
+            }
+        }
+
+        function createPanoramicBackgroundInThreeJS() {
+            //create a sphere to put the panoramic image (can be video) on it
+            var geometry = new THREE.SphereGeometry(500, 60, 40);
+            geometry.scale(-1, 1, 1);
+            var material = new THREE.MeshBasicMaterial({
+                map: new THREE.TextureLoader().load('ruin.jpg')
+            });
+            var mesh = new THREE.Mesh(geometry, material);
+            scene.add(mesh);
+        }
+
+        function basic3DStuff() {
+            //all three.js programs have a scene, a camera and a renderer
+            scene = new THREE.Scene();
+            camera3D = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 1000);
+            renderer = new THREE.WebGLRenderer();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            camera3D.position.z = 350;
+
+            // document.body.appendChild(renderer.domElement);
+            //this puts the three.js stuff in a particular div
+            document.getElementById('container').appendChild(renderer.domElement);
+
+            //add some lights if you want
+            var ambient = new THREE.HemisphereLight(0xbbbbff, 0x886666, 0.75);
+            ambient.position.set(-0.5, 0.75, -1);
+            scene.add(ambient);
+
+            var light = new THREE.DirectionalLight(0xffffff, 0.75);
+            light.position.set(1, 0.75, 0.5);
+            scene.add(light);
+
+        }
+
+        function addSomeCubes() {
+            //This makes a primitive cube
+            //Everything follows the same pattern, make geometry, material 
+            //and then combine into mesh that you add to scene.  It is the mesh that you control
+            var geometry = new THREE.BoxGeometry(70, 70, 70);
+            var material = new THREE.MeshBasicMaterial({ color: 0x00f00f });
+            var cube2 = new THREE.Mesh(geometry, material);
+            cube2.position.x = 100;
+            scene.add(cube2);
+            selectableMeshes.push(cube2);
+
+            //This makes a primitive cube
+            //Everything follows the same pattern, make geometry, material 
+            //and then combine into mesh that you add to scene.  It is the mesh that you control
+            var geometry = new THREE.BoxGeometry(70, 70, 70);
+            var material = new THREE.MeshBasicMaterial({ color: 0x000ff0 });
+            var cube3 = new THREE.Mesh(geometry, material);
+            cube3.position.x = -100;
+            scene.add(cube3);
+            selectableMeshes.push(cube3);
+        }
+
+        function setupSpeech() {
+            myRec = new p5.SpeechRec('en-US', function () {
+                //anonymous function for callback when speech is recognized
+                console.log(myRec.resultString);
+                if (wordsOrObjects == "words") {
+                    //add a word texture
+                    thisText = createNewText(myRec.resultString, 0, 0, 300, 0, 0, 0);
+                    scene.add(thisText);
+                    things.push(thisText);
+                } else {
+                    //add a poly object
+                    searchPoly(myRec.resultString);
+                }
+
+            }); // new P5.SpeechRec object
+            myRec.continuous = true; // do continuous recognition
+            myRec.interimResults = false; // allow partial recognition (faster, less accurate)
+            myRec.start(); // start engine
+        }
+
+        function setupPoseNet() {
+            //This makes a primitive cube to be a proxy for a point from Posenet
+            var geometry = new THREE.BoxGeometry(2, 2, 2);
+            var material = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+            poseNetProxy = new THREE.Mesh(geometry, material);
+            scene.add(poseNetProxy);
+            poseNetProxy.position.z = 100;
+
+            var params = {
+                imageScaleFactor: 0.6,
+                outputStride: 8,
+                flipHorizontal: false,
+                minConfidence: 0.2,
+                maxPoseDetections: 1,
+                scoreThreshold: 0.5,
+                nmsRadius: 20,
+                detectionType: 'single',
+                multiplier: 1.01,
+            }
+
+            // Create a new poseNet method with a single detection
+            video = createCapture(VIDEO);
+            //video.size(width, height);
+            poseNet = ml5.poseNet(video, params, modelReady);
+            //poseNet.detectionType = 'single';
+            // This sets up an event that fills the global variable "poses"
+            // with an array every time new poses are detected
+            poseNet.on('pose', function (results) {
+                poses = results;
+                // console.log(poses);
+                if (poses.length > 0) {
+                    //this is the callback for PoseNet but we are polling results in animate loop
+                }
+            });
+            // Hide the video element, and just show the canvas
+            video.hide();
+        }
+
+        function modelReady() {
+            console.log('model ready');
+            select('#status').html('Model Loaded');
+            poseNet.detectionType = 'single';
+        }
+
+        //checks against the list of grabbableMeshes for what you have clicked on to make it the "selectedObject"
+        function onDocumentMouseDownCheckObject(e) {
+            checkIfOverObject((event.clientX / renderer.domElement.clientWidth) * 2 - 1, -(event.clientY / renderer.domElement.clientHeight) * 2 + 1);
+        }
+
+        function checkIfOverObject(x, y) {
+            // console.log(selectableMeshes);
+            // console.log(x,y);
+            var raycaster = new THREE.Raycaster(); // create once
+            var mouse = new THREE.Vector2(); // create once
+            mouse.x = x;
+            mouse.y = y;
+            raycaster.setFromCamera(mouse, camera3D);
+            var intersects = raycaster.intersectObjects(selectableMeshes, true);
+            var tempobj;
+            for (var i = 0; i < intersects.length; i++) {
+                var intersection = intersects[i],
+                    tempobj = intersection.object;
+                //break;
+            }
+            if (tempobj) {
+                selectedMesh = tempobj;
+                console.log("over " + selectedMesh);
+            } else {
+                selectedMesh = null;
+            }
+
+        }
+
+        //this puts text on a canvase instead of using 3d text
+        function createNewText(text, x, y, z, rx, ry, rz) {
+            var canvas = document.createElement("canvas");
+            canvas.width = 1024;
+            canvas.height = 256;
+            var context = canvas.getContext("2d");
+            context.clearRect(0, 0, canvas.width, canvas.height);
+            var fontSize = Math.max(camera3D.fov / 2, 60);
+            context.font = fontSize + "pt Arial";
+            context.textAlign = "center";
+            context.fillStyle = "white";
+            context.fillText(text, canvas.width / 2, canvas.height / 2);
+            var textTexture = new THREE.Texture(canvas);
+            textTexture.needsUpdate = true;
+            var material = new THREE.MeshBasicMaterial({ map: textTexture, transparent: true });
+            var mesh = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), material);
+            //copy the little green (invisible? ) box that you added to follow camera
+            mesh.position.x = x;
+            mesh.position.y = y;
+            mesh.position.z = z;
+            mesh.rotation.x = rx;
+            mesh.rotation.y = ry;
+            mesh.rotation.z = rz;
+            mesh.scale.set(30, 30, 30);
+            return mesh;
+        }
+
+        function loadModel(fileName, x, y, z) {
+            let manager = new THREE.LoadingManager();
+            manager.onProgress = function (item, loaded, total) {
+                console.log(item, loaded, total);
+            };
+            var onProgress = function (xhr) {
+                if (xhr.lengthComputable) {
+                    var percentComplete = xhr.loaded / xhr.total * 100;
+                    console.log(Math.round(percentComplete, 2) + '% downloaded');
+                }
+            };
+            var onError = function (xhr) {
+            };
+
+            var myLoader = new THREE.OBJLoader(manager);
+            myLoader.load(fileName, function (object) {
+                object.traverse(function (child) {
+                    if (child instanceof THREE.Mesh) {
+                        // selectableMeshes.push(child);
+                        // child.material.map = texture;
+
+                        //don't worry about textures for now
+                    }
+                });
+                var grouper = new THREE.Group();
+                grouper.add(object);
+                grouper.position.x = x;
+                grouper.position.y = y;
+                grouper.position.z = z;
+                scene.add(grouper);
+
+                console.log("added object" + location);
+
+            }, onProgress, onError);
+
+        }
+        //this asks poly for a model based on a key
+        function searchPoly(keywords) {
+            //You get your own api key at the creditial part of https://console.developers.google.com -->
+            const API_KEY = 'AIzaSyBi_F0gaMWtXi8Ngerunlwe1vRFkjy8cdI';
+            var url = `https://poly.googleapis.com/v1/assets?keywords=${keywords}&format=OBJ&key=${API_KEY}`;
+            var request = new XMLHttpRequest();
+            request.open('GET', url, true);
+            request.addEventListener('load', function (event) {
+                var data = JSON.parse(event.target.response);
+                var assets = data.assets;
+                if (assets) {
+                    var asset = assets[0];
+                    createObject(asset);
+                } else {
+                    results.innerHTML = '<center>NO RESULTS</center>';
+                }
+            });
+            request.send(null);
+        }
+
+        //this creates a 3 object based on model coming back from google poly
+        function createObject(asset) {
+            var format = asset.formats.find(format => { return format.formatType === 'OBJ'; });
+            if (format !== undefined) {
+                var obj = format.root;
+                var mtl = format.resources.find(resource => { return resource.url.endsWith('mtl') });
+                var path = obj.url.slice(0, obj.url.indexOf(obj.relativePath));
+                var loader = new THREE.MTLLoader();
+                loader.setCrossOrigin(true);
+                loader.setMaterialOptions({ ignoreZeroRGBs: true });
+                loader.setResourcePath(path);
+                loader.load(mtl.url, function (materials) {
+                    var loader = new THREE.OBJLoader();
+
+                    loader.setMaterials(materials);
+                    loader.load(obj.url, function (object) {
+                        var box = new THREE.Box3();
+                        box.setFromObject(object);
+                        // re-center
+                        var vec = new THREE.Vector3(0, 0, 0);
+                        box.getCenter(vec);
+                        //vec.y = box.min.y + 50;
+                        object.position.sub(vec);
+                        // scale
+                        var scaler = new THREE.Group();
+                        scaler.add(object);
+                        scaler.scale.setScalar(30 / box.getSize(vec).length());
+                        scaler.position.y = -20;
+                        scaler.position.z = 300;
+                        scene.add(scaler);
+                        things.push(scaler);
+                        // polyContainer.add(scaler);
+
+                    });
+
+                });
+
+            }
+
+        }
+
+    </script>
+</body>
+
+</html>
