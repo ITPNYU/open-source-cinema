@@ -43,26 +43,32 @@
     <p id='status'>Loading model...</p>
     <!-- Instead of having a separate js file the main javascript is added using script tags-->
     <script>
-
+        //usual 3D variables
         let scene;
         let camera3D;
         let renderer;
+        //voice variables
         let myRec;
+        //posenet variables
         let video;
         let poseNet;
         let poses = [];
-        let selectableMeshes = [];  //two cubes?
-        let selectedMesh;
+        let poseNetProxy;
+        //vr variables
         let vrHeadSet = false;
         let controls;
-        let poseNetProxy;
+        let effect;
+        //variables for interaction of picking objects to animate
         let wordsOrObjects = "words";
-        let things = [];
+        let things = [];   //words and poly objects
+        let selectableMeshes = [];  //two cubes?
+        let selectedMesh;  //which cube
 
         //like draw
         var animate = function () {
             //recursively call this function is a way that the renderer does it in a smart way
             requestAnimationFrame(animate);
+            //move the red cube around based on rightWrist info coming  from posenet
             if (poses.length > 0) {
                 //find the right wrist locations from posenet
                 let x = ((640 - poses[0].pose.rightWrist.x) - 320);
@@ -71,27 +77,31 @@
                 poseNetProxy.position.x = x;
                 poseNetProxy.position.y = y;
             }
+            //if a cube was selected, spin it
             if (selectedMesh) {
                 selectedMesh.rotation.x += .1;
             }
-            //animate the things in the things array
+            //switch modes from producing words to poly objects depending on camera angle
+            if (camera3D.rotation.z > 0) {
+                wordsOrObjects = "objects";
+            } else {
+                wordsOrObjects = "words";
+            }
+            //animate the words and poly objects in the things array
             for (var i = 0; i < things.length; i++) {
                 things[i].position.z -= 1;
                 if (things[i].position.z < -400) {
                     things[i].position.z = 400;
                 }
             }
+            //render with the stereo effect or not depending on using headset
             if (vrHeadSet) {
                 controls.update();
                 effect.render(scene, camera3D);
             } else {
                 renderer.render(scene, camera3D);
             }
-            if (camera3D.rotation.z > 0) {
-                wordsOrObjects = "objects";
-            } else {
-                wordsOrObjects = "words";
-            }
+
 
         };
 
@@ -123,56 +133,11 @@
         init();  //like setup but you have to call it yourself
         animate();  //like draw you have to kick start and then it calls itself
 
-        function checkVRStuff() {
-            if (vrHeadSet) {
-                //for VR headset
-                controls = new THREE.DeviceOrientationControls(camera3D);
-                var effect = new THREE.StereoEffect(renderer);
-                effect.eyeSeparation = .1;
-                if (renderer.domElement.mozRequestFullScreen) {
-                    renderer.domElement.mozRequestFullScreen();
-                } else if (renderer.domElement.webkitRequestFullscreen) {
-                    renderer.domElement.webkitRequestFullscreen();
-                }
-                effect.setSize(window.innerWidth, window.innerHeight);
-            }
-        }
 
-        function createPanoramicBackgroundInThreeJS() {
-            //create a sphere to put the panoramic image (can be video) on it
-            var geometry = new THREE.SphereGeometry(500, 60, 40);
-            geometry.scale(-1, 1, 1);
-            var material = new THREE.MeshBasicMaterial({
-                map: new THREE.TextureLoader().load('ruin.jpg')
-            });
-            var mesh = new THREE.Mesh(geometry, material);
-            scene.add(mesh);
-        }
 
-        function basic3DStuff() {
-            //all three.js programs have a scene, a camera and a renderer
-            scene = new THREE.Scene();
-            camera3D = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 1000);
-            renderer = new THREE.WebGLRenderer();
-            renderer.setSize(window.innerWidth, window.innerHeight);
-            camera3D.position.z = 350;
-
-            // document.body.appendChild(renderer.domElement);
-            //this puts the three.js stuff in a particular div
-            document.getElementById('container').appendChild(renderer.domElement);
-
-            //add some lights if you want
-            var ambient = new THREE.HemisphereLight(0xbbbbff, 0x886666, 0.75);
-            ambient.position.set(-0.5, 0.75, -1);
-            scene.add(ambient);
-
-            var light = new THREE.DirectionalLight(0xffffff, 0.75);
-            light.position.set(1, 0.75, 0.5);
-            scene.add(light);
-
-        }
 
         function addSomeCubes() {
+            console.log("adding cubes")
             //This makes a primitive cube
             //Everything follows the same pattern, make geometry, material 
             //and then combine into mesh that you add to scene.  It is the mesh that you control
@@ -195,6 +160,7 @@
         }
 
         function setupSpeech() {
+            console.log("Start Speech Detection")
             myRec = new p5.SpeechRec('en-US', function () {
                 //anonymous function for callback when speech is recognized
                 console.log(myRec.resultString);
@@ -215,6 +181,7 @@
         }
 
         function setupPoseNet() {
+            console.log("Start Up PoseNet")
             //This makes a primitive cube to be a proxy for a point from Posenet
             var geometry = new THREE.BoxGeometry(2, 2, 2);
             var material = new THREE.MeshBasicMaterial({ color: 0xff0000 });
@@ -237,7 +204,11 @@
             // Create a new poseNet method with a single detection
             video = createCapture(VIDEO);
             //video.size(width, height);
-            poseNet = ml5.poseNet(video, params, modelReady);
+            poseNet = ml5.poseNet(video, params, function () {
+                console.log('model ready');
+                select('#status').html('Model Loaded');
+                poseNet.detectionType = 'single';
+            });
             //poseNet.detectionType = 'single';
             // This sets up an event that fills the global variable "poses"
             // with an array every time new poses are detected
@@ -252,17 +223,14 @@
             video.hide();
         }
 
-        function modelReady() {
-            console.log('model ready');
-            select('#status').html('Model Loaded');
-            poseNet.detectionType = 'single';
-        }
 
         //checks against the list of grabbableMeshes for what you have clicked on to make it the "selectedObject"
         function onDocumentMouseDownCheckObject(e) {
             checkIfOverObject((event.clientX / renderer.domElement.clientWidth) * 2 - 1, -(event.clientY / renderer.domElement.clientHeight) * 2 + 1);
         }
 
+        //this uses a raycaster to project 3D intersection points from 2D coordinate from mouse or poseNet
+        //not the x and y are pos and neg numbers between 0-1 representing distance from center of screen not for example 0-640
         function checkIfOverObject(x, y) {
             // console.log(selectableMeshes);
             // console.log(x,y);
@@ -350,7 +318,7 @@
             }, onProgress, onError);
 
         }
-        //this asks poly for a model based on a key
+        //this asks poly for a model based on a key and then loads it
         function searchPoly(keywords) {
             //You get your own api key at the creditial part of https://console.developers.google.com -->
             const API_KEY = 'AIzaSyBi_F0gaMWtXi8Ngerunlwe1vRFkjy8cdI';
@@ -358,11 +326,49 @@
             var request = new XMLHttpRequest();
             request.open('GET', url, true);
             request.addEventListener('load', function (event) {
+                //this is the anonymous function for the callback of the first search round of interacting with poly API 
+                //now you load the model
                 var data = JSON.parse(event.target.response);
                 var assets = data.assets;
                 if (assets) {
-                    var asset = assets[0];
-                    createObject(asset);
+                    var asset = assets[0];  //you could pick among many that come back but we take the first one
+                    //  createObject(asset);
+                    var format = asset.formats.find(format => { return format.formatType === 'OBJ'; });
+                    if (format !== undefined) {
+                        var obj = format.root;
+                        var mtl = format.resources.find(resource => { return resource.url.endsWith('mtl') });
+                        var path = obj.url.slice(0, obj.url.indexOf(obj.relativePath));
+                        var loader = new THREE.MTLLoader();
+                        loader.setCrossOrigin(true);
+                        loader.setMaterialOptions({ ignoreZeroRGBs: true });
+                        loader.setResourcePath(path);
+                        loader.load(mtl.url, function (materials) {
+                            //this is a callback from the loader that brings back the materials
+                            var loader = new THREE.OBJLoader();
+                            loader.setMaterials(materials);
+                            loader.load(obj.url, function (object) {
+                                var box = new THREE.Box3();
+                                box.setFromObject(object);
+                                // re-center
+                                var vec = new THREE.Vector3(0, 0, 0);
+                                box.getCenter(vec);
+                                //vec.y = box.min.y + 50;
+                                object.position.sub(vec);
+                                // scale
+                                var scaler = new THREE.Group();
+                                scaler.add(object);
+                                scaler.scale.setScalar(30 / box.getSize(vec).length());
+                                scaler.position.y = -20;
+                                scaler.position.z = 300;
+                                scene.add(scaler);
+                                things.push(scaler);
+                                // polyContainer.add(scaler);
+
+                            });
+
+                        });
+
+                    }
                 } else {
                     results.innerHTML = '<center>NO RESULTS</center>';
                 }
@@ -372,42 +378,55 @@
 
         //this creates a 3 object based on model coming back from google poly
         function createObject(asset) {
-            var format = asset.formats.find(format => { return format.formatType === 'OBJ'; });
-            if (format !== undefined) {
-                var obj = format.root;
-                var mtl = format.resources.find(resource => { return resource.url.endsWith('mtl') });
-                var path = obj.url.slice(0, obj.url.indexOf(obj.relativePath));
-                var loader = new THREE.MTLLoader();
-                loader.setCrossOrigin(true);
-                loader.setMaterialOptions({ ignoreZeroRGBs: true });
-                loader.setResourcePath(path);
-                loader.load(mtl.url, function (materials) {
-                    var loader = new THREE.OBJLoader();
 
-                    loader.setMaterials(materials);
-                    loader.load(obj.url, function (object) {
-                        var box = new THREE.Box3();
-                        box.setFromObject(object);
-                        // re-center
-                        var vec = new THREE.Vector3(0, 0, 0);
-                        box.getCenter(vec);
-                        //vec.y = box.min.y + 50;
-                        object.position.sub(vec);
-                        // scale
-                        var scaler = new THREE.Group();
-                        scaler.add(object);
-                        scaler.scale.setScalar(30 / box.getSize(vec).length());
-                        scaler.position.y = -20;
-                        scaler.position.z = 300;
-                        scene.add(scaler);
-                        things.push(scaler);
-                        // polyContainer.add(scaler);
 
-                    });
-
-                });
-
+        }
+        function checkVRStuff() {
+            if (vrHeadSet) {
+                //for VR headset
+                controls = new THREE.DeviceOrientationControls(camera3D);
+                effect = new THREE.StereoEffect(renderer);
+                effect.eyeSeparation = .1;
+                if (renderer.domElement.mozRequestFullScreen) {
+                    renderer.domElement.mozRequestFullScreen();
+                } else if (renderer.domElement.webkitRequestFullscreen) {
+                    renderer.domElement.webkitRequestFullscreen();
+                }
+                effect.setSize(window.innerWidth, window.innerHeight);
             }
+        }
+        function createPanoramicBackgroundInThreeJS() {
+            //create a sphere to put the panoramic image (can be video) on it
+            var geometry = new THREE.SphereGeometry(500, 60, 40);
+            geometry.scale(-1, 1, 1);
+            var material = new THREE.MeshBasicMaterial({
+                map: new THREE.TextureLoader().load('ruin.jpg')
+            });
+            var mesh = new THREE.Mesh(geometry, material);
+            scene.add(mesh);
+        }
+
+        function basic3DStuff() {
+            console.log("adding 3D stuff")
+            //all three.js programs have a scene, a camera and a renderer
+            scene = new THREE.Scene();
+            camera3D = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 1000);
+            renderer = new THREE.WebGLRenderer();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            camera3D.position.z = 350;
+
+            // document.body.appendChild(renderer.domElement);
+            //this puts the three.js stuff in a particular div
+            document.getElementById('container').appendChild(renderer.domElement);
+
+            //add some lights if you want
+            var ambient = new THREE.HemisphereLight(0xbbbbff, 0x886666, 0.75);
+            ambient.position.set(-0.5, 0.75, -1);
+            scene.add(ambient);
+
+            var light = new THREE.DirectionalLight(0xffffff, 0.75);
+            light.position.set(1, 0.75, 0.5);
+            scene.add(light);
 
         }
 
