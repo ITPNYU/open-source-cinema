@@ -1,0 +1,383 @@
+<html>
+
+<head>
+    <title>Chat 3D</title>
+    <style>
+        body {
+            background-color: #000000;
+            margin: 0px;
+            overflow: hidden;
+        }
+
+        #container {}
+
+        #input {
+            border-radius: 2px;
+            border: 1px solid #ccc;
+            margin-top: 10px;
+            padding: 5px;
+            width: 400px;
+        }
+    </style>
+
+</head>
+<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+
+
+<body>
+
+    <!--These are the main divs for three.js -->
+    <div id='info'>
+        <input type=text id='input'>
+    </div>
+    <div id='container'></div>
+    <video id="video" playsinline style="display: none;"></video>
+    <canvas id='canvas' width='512' height='512' style="display: none;"></canvas>
+
+
+    <!--Here all the p5, three.js, jquery, tensorflow(masking) libaries.  Coming from http CDN addresses allows us to share this code
+    without sharing the files for the libaries-->
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/0.7.3/p5.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/0.7.3/addons/p5.dom.min.js"></script>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/102/three.min.js"></script>
+    <script src="https://threejs.org/examples/js/loaders/OBJLoader.js"></script>
+    <script src="https://threejs.org/examples/js/loaders/MTLLoader.js"></script>
+
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/body-pix"></script>
+
+    <script src="//ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js"></script>
+    <!-- This is all of our local code-->
+    <script src="pano_mouse.js"></script>
+    <script src="bodyPixFaceCanvas.js"></script>
+    <!--
+           <script src="websocket.js"></script>
+    <script src="client.js"></script>
+    -->
+
+
+    <!-- Instead of having a separate js file the main javascript is added using script tags-->
+    <script>
+        //usual 3D variables
+        let scene;
+        let camera3D;
+        let renderer;
+
+        let myID;
+        let myAngleOnCircle;
+        let myColor;
+
+        let allClients = [];
+
+        let bodyPixTexture;
+        let myImage;
+        let faceTexture;
+
+
+        //like draw
+        var animate = function () {
+            //recursively call this function is a way that the renderer does it in a smart way
+            requestAnimationFrame(animate);
+            renderer.render(scene, camera3D);
+            // console.log(allClients.keys);
+            for (var key in allClients) {
+                allClients[key].animateThings();
+            }
+            if (bodyPixTexture) {
+                bodyPixTexture.needsUpdate = true;
+                //headTilt is a variable set in bodyPixFaceCanvas
+                //console.log(headTilt);
+                if (headTilt < 130) {
+                    myAngleOnCircle += 1;
+                    console.log("right");
+                    repositionMe()
+                } else if (headTilt > 270) {
+                    myAngleOnCircle -= 1;
+                    console.log("left");
+                    repositionMe()
+                }
+
+            }
+
+        };
+
+        function repositionMe() {
+            var pos = getPositionOnCircle(myAngleOnCircle, 100);
+            camera3D.position.x = pos.x;
+            camera3D.position.z = pos.z;
+            camera3D.lookAt(0, 0, 0); //start by looking at center of world;
+            sendOutMessage("");
+        }
+
+        function setup() {
+            //same as init but some p5 stuff needs to be called from setup
+            console.log("setup  ");
+        }
+
+        //like setup
+        function init() {
+            console.log("initializing three.js")
+            basic3DStuff()
+            //allow mouse to control camera
+            activatePanoControl(camera3D); //field mouse dragggin to move camera
+            establishYourAvatar();
+            doWebSocketStuff();
+            createPanoramicBackgroundInThreeJS();
+            /**
+            * Send mesage when user presses Enter key
+            */
+            $("#input").keydown(function (e) {
+                if (e.keyCode === 13) {
+                    // send the message as an ordinary text
+                    sendOutMessage($(this).val());
+                    $(this).val(''); //empty the field
+                }
+            });
+            setupBodyPix();
+        }
+
+        function establishYourAvatar() {
+            //put random stuff into your stuff to start
+            myAngleOnCircle = Math.floor((Math.random() * 360)); //give me a random place on the circle, hack
+            myColor = '#' + Math.random().toString(16).substr(-6);  //random color, hack
+            repositionMe();
+        }
+
+        function gotBodyPixCanvas(the_canvas) {
+            bodyPixCanvas = the_canvas;
+            bodyPixTexture = new THREE.Texture(bodyPixCanvas);
+            //
+            var geo = new THREE.PlaneGeometry(640, 480);
+            var mat = new THREE.MeshBasicMaterial({ map: bodyPixTexture, transparent: true, side: THREE.DoubleSide });
+            myImage = new THREE.Mesh(geo, mat);
+            //for debuging put this in the center.  Should acutally be unseen like your face
+            myImage.position.x = 0;
+            myImage.position.y = 0;
+            myImage.position.z = 0;
+            myImage.lookAt(camera3D.position.x, camera3D.position.y, camera3D.position.z);
+
+            scene.add(myImage);
+        }
+
+        init();  //like setup but you have to call it yourself
+        animate();  //like draw you have to kick start and then it calls itself
+
+        function getPositionOnCircle(angle, radius) {
+            var rads = angle * Math.PI / 180;
+            var z = radius * Math.sin(rads);
+            var x = radius * Math.cos(rads);
+            return { "x": x, "z": z };
+        }
+
+        //this puts text on a canvase instead of using 3d text
+        function createNewText(text, x, y, z, rx, ry, rz) {
+            var canvas = document.createElement("canvas");
+            canvas.width = 1024;
+            canvas.height = 256;
+            var context = canvas.getContext("2d");
+            context.clearRect(0, 0, canvas.width, canvas.height);
+            var fontSize = Math.max(camera3D.fov / 2, 100);
+            context.font = fontSize + "pt Arial";
+            context.textAlign = "center";
+            context.fillStyle = "white";
+            context.fillText(text, canvas.width / 2, canvas.height / 2);
+            var textTexture = new THREE.Texture(canvas);
+            textTexture.needsUpdate = true;
+            var material = new THREE.MeshBasicMaterial({ map: textTexture, transparent: true });
+            var mesh = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), material);
+            //copy the little green (invisible? ) box that you added to follow camera
+            mesh.position.x = x;
+            mesh.position.y = y;
+            mesh.position.z = z;
+            mesh.rotation.x = rx;
+            mesh.rotation.y = ry;
+            mesh.rotation.z = rz;
+            mesh.scale.set(80, 80, 80);
+            return mesh;
+        }
+
+        function createPanoramicBackgroundInThreeJS() {
+            //create a sphere to put the panoramic image (can be video) on it
+            var geometry = new THREE.SphereGeometry(500, 60, 40);
+            geometry.scale(-1, 1, 1);
+            var material = new THREE.MeshBasicMaterial({
+                map: new THREE.TextureLoader().load('ruin.jpg')
+            });
+            var mesh = new THREE.Mesh(geometry, material);
+            scene.add(mesh);
+        }
+
+        function basic3DStuff() {
+            console.log("adding 3D stuff")
+            //all three.js programs have a scene, a camera and a renderer
+            scene = new THREE.Scene();
+            camera3D = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 1000);
+            renderer = new THREE.WebGLRenderer();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            camera3D.position.z = 250;
+
+            // document.body.appendChild(renderer.domElement);
+            //this puts the three.js stuff in a particular div
+            document.getElementById('container').appendChild(renderer.domElement);
+
+            //add some lights if you want
+            var ambient = new THREE.HemisphereLight(0xbbbbff, 0x886666, 0.75);
+            ambient.position.set(-0.5, 0.75, -1);
+            scene.add(ambient);
+
+            var light = new THREE.DirectionalLight(0xffffff, 0.75);
+            light.position.set(1, 0.75, 0.5);
+            scene.add(light);
+        }
+
+
+        //////////////////////////////////////////////////////////////
+        //OBJECT ORIENTED CLASS FOR KEEPING TRACK OF ALL CLIENTS FOR SERVER
+        //////////////////////////////////////////////////////////////
+        class Client {
+
+            constructor(msg) {
+                this.ID = msg.ID;
+                this.things = [];
+                this.new3DAvatarObject("color", msg.color);  //create a blank plane
+                //this.cube = new THREE.Mesh(geometry, material);
+                //scene.add(this.cube);
+            }
+
+            new3DAvatarObject(type, texture) {
+                //remove old one if you already made one without image
+                if (this.avatarObj) scene.remove(this.avatarObj);
+                var geo = new THREE.BoxGeometry(30, 30,30);
+                //if you have a picture use it, otherwise color
+                if (type == "canvas") {
+                    bodyPixTexture = new THREE.Texture(texture);
+                    var mat = new THREE.MeshBasicMaterial({ map: bodyPixTexture, transparent: true, side: THREE.DoubleSide });
+                } else {
+                    var mat = new THREE.MeshBasicMaterial({ color: texture });
+                }
+                this.avatarObj = new THREE.Mesh(geo, mat);
+                scene.add(this.avatarObj);
+                //This makes a plane with or without image
+            }
+
+            newIncomingMessage(msg) {
+                this.angleOnCircle = msg.angleOnCircle;
+                var pos = getPositionOnCircle(this.angleOnCircle, 300);
+                this.avatarObj.position.x = pos.x;
+                this.avatarObj.position.z = pos.z;
+                this.avatarObj.position.y = 0;
+
+                //add message
+                if (msg.text != "") {  //maybe they were just sending position
+                    this.mesh = createNewText(msg.text, 0, 0, 0, 0, 0, 0);
+                    this.mesh.lookAt(0, 0, 0);
+                    this.things.push(this.mesh);
+                    scene.add(this.mesh);
+                }
+            }
+
+            animateThings() {
+                for (var i = 0; i < this.things.length; i++) {
+                    this.things[i].position.x = this.avatarObj.position.x;
+                    this.things[i].position.z = this.avatarObj.position.z;
+                    this.things[i].position.y += 3;
+                    if (this.things[i].position.y > 250) this.things[i].position.y = 40;
+                }
+            }
+
+            leave() {
+                scene.remove(this.cube);
+            }
+
+        }
+
+        //////////////////////////////////////////////////////////////
+        //WEBSOCKETS
+        //////////////////////////////////////////////////////////////
+        var connection;
+
+        function doWebSocketStuff() {
+            // if user is running mozilla then use it's built-in WebSocket
+            window.WebSocket = window.WebSocket || window.MozWebSocket;
+            // if browser doesn't support WebSocket, just show some notification and exit
+            if (!window.WebSocket) {
+                console.log('Sorry, but your browser doesn\'t '
+                    + 'support WebSockets.');
+                return;
+            }
+            // open connection
+            connection = new WebSocket('ws://127.0.0.1:1337');
+            connection.onopen = function () {
+                //  any start up events.  usually you pick name but we are using timestamp
+            };
+            connection.onerror = function (error) {
+                console.log('Sorry, but there\'s some problem with your '
+                    + 'connection or the server is down.');
+            };
+            // most important part - incoming messages
+            connection.onmessage = function (message) {
+                //console.log(message);
+                // try to parse JSON message. Because we know that the server always returns
+                // JSON this should work without any problem but we should make sure that
+                // the massage is not chunked or otherwise damaged.
+                try {
+                    var json = JSON.parse(message.data);
+                } catch (e) {
+                    console.log('This doesn\'t look like a valid JSON: ', message.data);
+                    return;
+                }
+                gotMessage(json);
+            };
+            connection.onclose = function (evt) {
+                console.log(evt);
+            };
+        }
+
+        function sendOutMessage(txt) {
+            //add your local stuff to the message
+            var myJSON = {};
+            myJSON.ID = myID;
+            myJSON.color = myColor;
+            myJSON.angleOnCircle = myAngleOnCircle;
+            myJSON.text = txt;
+            if(connection)
+            connection.send(JSON.stringify(myJSON));
+        }
+
+
+        function gotMessage(json) {
+            // NOTE: if you're not sure about the JSON structure
+            // check the server source code
+            if (json.type === 'initial') { // first response from the server with user's ID (using time)
+                myID = json.contents.ID;
+                console.log("got ID" + myID)
+                // from now user can start sending messages
+            } else if (json.type === 'history') { // entire message history
+                // deal with each message in the history
+                console.log("Got History", json);
+                for (var i = 0; i < json.contents.length; i++) {
+                    addMessage(JSON.parse(json.contents[i].utf8Data));
+                }
+            } else if (json.type === 'message') { // it's a single message
+                addMessage(JSON.parse(json.contents.utf8Data));
+            } else {
+                console.log('Hmm..., I\'ve never seen JSON like this: ', json);
+            }
+        }
+
+        /**
+         * Deal with the message
+         */
+        function addMessage(msg) {
+            if (allClients[msg.ID] == null) {//if it does not exist
+                allClients[msg.ID] = new Client(msg);  //add a new client
+            }
+            allClients[msg.ID].newIncomingMessage(msg);
+        }
+
+    </script>
+</body>
+
+</html>
