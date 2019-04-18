@@ -1,8 +1,9 @@
-// http://ejohn.org/blog/ecmascript-5-strict-mode-json-and-more/
+//install node
+//open a command line and run this "npm install websocket"
+//then run this program in command line with  "node nameOfThisFile.js"9873wde
 
+//More details about this program
 //https://medium.com/@martin.sikora/node-js-websocket-simple-chat-tutorial-2def3a841b61
-//https://stackoverflow.com/questions/26331787/socket-io-node-js-simple-example-to-send-image-files-from-server-to-client
-//npm install websocket
 
 "use strict";
 
