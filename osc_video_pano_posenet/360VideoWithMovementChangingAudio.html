@@ -1,0 +1,209 @@
+<html>
+
+<head>
+    <title>Manu</title>
+    <style>
+        body {
+            background-color: #000000;
+            margin: 0px;
+            overflow: hidden;
+        }
+
+        #container {}
+    </style>
+
+</head>
+<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+
+
+<body>
+
+    <!--These are the main divs for three.js and street view-->
+    <div id='container'></div>
+
+    <!--Here all the p5, three.js, jquery, tensorflow(masking) libaries.  Coming from http CDN addresses allows us to share this code
+    without sharing the files for the libaries-->
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/0.7.3/p5.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/0.7.3/addons/p5.dom.min.js"></script>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/102/three.min.js"></script>
+    <script src="https://threejs.org/examples/js/effects/StereoEffect.js"></script>
+    <script src="https://threejs.org/examples/js/loaders/OBJLoader.js"></script>
+    <script src="https://threejs.org/examples/js/loaders/MTLLoader.js"></script>
+    <script src="https://threejs.org/examples/js/controls/DeviceOrientationControls.js"></script>
+
+    <script src="https://unpkg.com/ml5@0.2.2/dist/ml5.min.js" type="text/javascript"></script>
+
+    <!-- This is all of our local code-->
+    <script src="pano_mouse.js"></script>
+      <!--  <script src="p5.speech.js"></script> -->
+
+
+    <p id='status'>Loading model...</p>
+    <!-- Instead of having a separate js file the main javascript is added using script tags-->
+    <script>
+        //usual 3D variables
+        let scene;
+        let camera3D;
+        let renderer;
+  
+        //posenet variables
+        let video;
+        let poseNet;
+        let poses = [];
+        let poseNetProxy;
+
+        let videoTexture;
+        let videoElement;
+
+        //like draw        
+        var animate = function () {
+        
+            //recursively call this function is a way that the renderer does it in a smart way
+            requestAnimationFrame(animate);
+            //move the red cube around based on rightWrist info coming  from posenet
+            if (poses.length > 0) {
+                //find the right wrist locations from posenet
+                let x = ((640 - poses[0].pose.rightWrist.x) - 320);
+                let y = ((480 - poses[0].pose.rightWrist.y) - 240);
+                poseNetProxy.position.x = x;
+                poseNetProxy.position.y = y;
+                if (x < 0){
+                    videoElement.pause();
+                }else{
+                    videoElement.play();
+                
+                }
+            }
+            if (videoTexture){
+                //videoTexture.needsUpdate =true;
+            }
+            renderer.render(scene, camera3D);
+        };
+
+        function setup() {
+            //same as init but some p5 stuff needs to be called from setup
+            console.log("setup  ");
+            setupPoseNet();
+        }
+
+        //like setup
+        function init() {
+            container = document.getElementById( 'container' ); 
+            console.log("initializing three.js")
+            basic3DStuff()
+           // checkVRStuff();
+           // addSomeCubes();
+            //createPanoramicBackgroundInThreeJS();
+            createPanoVideo("pano.webm");
+            //allow mouse to control camera using pano_mouse.js file
+            activatePanoControl(camera3D); //field mouse dragggin to move camera
+
+         }
+
+        init();  //like setup but you have to call it yourself
+        animate();  //like draw you have to kick start and then it calls itself
+
+        function setupPoseNet() {
+            console.log("Start Up PoseNet")
+            //This makes a primitive cube to be a proxy for a point from Posenet
+            var geometry = new THREE.BoxGeometry(2, 2, 2);
+            var material = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+            poseNetProxy = new THREE.Mesh(geometry, material);
+            scene.add(poseNetProxy);
+            poseNetProxy.position.z = 100;
+
+            var params = {
+                imageScaleFactor: 0.6,
+                outputStride: 8,
+                flipHorizontal: false,
+                minConfidence: 0.2,
+                maxPoseDetections: 1,
+                scoreThreshold: 0.5,
+                nmsRadius: 20,
+                detectionType: 'single',
+                multiplier: 1.01,
+            }
+
+            // Create a new poseNet method with a single detection
+            video = createCapture(VIDEO);
+            //video.size(width, height);
+            poseNet = ml5.poseNet(video, params, function () {
+                console.log('model ready');
+                select('#status').html('Model Loaded');
+                poseNet.detectionType = 'single';
+            });
+            //poseNet.detectionType = 'single';
+            // This sets up an event that fills the global variable "poses"
+            // with an array every time new poses are detected
+            poseNet.on('pose', function (results) {
+                poses = results;
+                // console.log(poses);
+                if (poses.length > 0) {
+                    //this is the callback for PoseNet but we are polling results in animate loop
+                }
+            });
+            // Hide the video element, and just show the canvas
+            video.hide();
+        }
+
+     
+
+        function createPanoVideo(filename){
+            var geometry = new THREE.SphereBufferGeometry( 500, 60, 40 );
+				// invert the geometry on the x-axis so that all of the faces point inward
+				geometry.scale( - 1, 1, 1 );
+                videoElement = document.createElement( 'video' );
+                videoElement.crossOrigin = 'anonymous';
+                videoElement.width = 640;
+                videoElement.height = 360;
+                videoElement.loop = true;
+                videoElement.muted = true;
+                videoElement.src = filename;
+                videoElement.setAttribute( 'webkit-playsinline', 'webkit-playsinline' );
+                videoElement.play();
+				videoTexture = new THREE.VideoTexture(  videoElement );
+				var material = new THREE.MeshBasicMaterial( { map: videoTexture } );
+				mesh = new THREE.Mesh( geometry, material );
+                scene.add( mesh );
+        }
+        function createPanoramicBackgroundInThreeJS() {
+            //create a sphere to put the panoramic image (can be video) on it
+            var geometry = new THREE.SphereGeometry(500, 60, 40);
+            geometry.scale(-1, 1, 1);
+            var material = new THREE.MeshBasicMaterial({
+                map: new THREE.TextureLoader().load('ruin.jpg')
+            });
+            var mesh = new THREE.Mesh(geometry, material);
+            scene.add(mesh);
+        }
+
+        function basic3DStuff() {
+            console.log("adding 3D stuff")
+            //all three.js programs have a scene, a camera and a renderer
+            scene = new THREE.Scene();
+            camera3D = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 1000);
+            renderer = new THREE.WebGLRenderer();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            camera3D.position.z = 350;
+
+            // document.body.appendChild(renderer.domElement);
+            //this puts the three.js stuff in a particular div
+            document.getElementById('container').appendChild(renderer.domElement);
+
+            //add some lights if you want
+            var ambient = new THREE.HemisphereLight(0xbbbbff, 0x886666, 0.75);
+            ambient.position.set(-0.5, 0.75, -1);
+            scene.add(ambient);
+
+            var light = new THREE.DirectionalLight(0xffffff, 0.75);
+            light.position.set(1, 0.75, 0.5);
+            scene.add(light);
+
+        }
+
+    </script>
+</body>
+
+</html>
