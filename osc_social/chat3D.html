@@ -209,7 +209,7 @@
                 this.avatarObj = new THREE.Mesh(geo, mat);
                 scene.add(this.avatarObj);
                 //This makes a plane with or without image
-                
+
             }
 
             newIncomingMessage(msg) {
@@ -223,7 +223,7 @@
                 if (msg.text != "") {  //maybe they were just sending position
                     this.textMesh = createNewText(msg.text, 0, 0, 0, 0, 0, 0);
                     this.things.push( this.textMesh);
-                    this.textMesh.position.y = 200*Math.random + 50;
+                    this.textMesh.position.y = 100*Math.random() + 40;
                     scene.add( this.textMesh);
                 }
             }
@@ -233,13 +233,13 @@
                     this.things[i].position.x = this.avatarObj.position.x;
                     this.things[i].position.z = this.avatarObj.position.z;
                     this.things[i].position.y += 1;
-                    this.things[i].rotation.y += 0.3;
+                    this.things[i].rotation.y += 0.2;
                     if (this.things[i].position.y > 150) this.things[i].position.y = 40;
                 }
             }
 
             leave() {
-                scene.remove(this.cube);
+                scene.remove( this.avatarObj);
             }
 
         }
