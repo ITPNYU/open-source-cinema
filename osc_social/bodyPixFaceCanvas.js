@@ -238,6 +238,7 @@ function toMaskImageDataFace(segmentation, maskBackground) {
   }
   //var angle = Math.atan(b-t/r-l)*180/Math.PI;
   headTilt = (b-t/r-l);
+  
   return new ImageData(bytes, width, height);
 }
 

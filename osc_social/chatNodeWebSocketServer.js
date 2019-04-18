@@ -67,7 +67,7 @@ wsServer.on('request', function (request) {
     connection.on('message', function (message) {
        // if (message.type === 'utf8') { // accept only text
             console.log((new Date()) + ' Received Message from '+ ID + ': ' + message.utf8Data);
-            if (message.utf8Data.text != "")
+           // if (message.utf8Data.text != "")
             history.push(message);
             history = history.slice(-100);
             // broadcast message to all connected clients

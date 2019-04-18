@@ -45,10 +45,17 @@
     <script src="https://threejs.org/examples/js/loaders/OBJLoader.js"></script>
     <script src="https://threejs.org/examples/js/loaders/MTLLoader.js"></script>
 
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/body-pix"></script>
 
     <script src="//ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js"></script>
     <!-- This is all of our local code-->
     <script src="pano_mouse.js"></script>
+    <script src="bodyPixFaceCanvas.js"></script>
+    <!--
+           <script src="websocket.js"></script>
+    <script src="client.js"></script>
+    -->
 
 
     <!-- Instead of having a separate js file the main javascript is added using script tags-->
@@ -64,6 +71,11 @@
 
         let allClients = [];
 
+        let bodyPixTexture;
+        let myImage;
+        let faceTexture;
+
+
         //like draw
         var animate = function () {
             //recursively call this function is a way that the renderer does it in a smart way
@@ -73,8 +85,37 @@
             for (var key in allClients) {
                 allClients[key].animateThings();
             }
+         
+            if (bodyPixTexture) {
+                bodyPixTexture.needsUpdate = true;
+                //headTilt is a variable set in bodyPixFaceCanvas
+
+                /*
+                console.log(headTilt);
+            
+                if (headTilt < -20) {
+                    myAngleOnCircle += 1;
+                    console.log("right");
+                    repositionMe()
+                } else if (headTilt > 60) {
+                    myAngleOnCircle -= 1;
+                    console.log("left");
+                    repositionMe()
+                }
+                */
+                
+
+            }
+
         };
 
+        function repositionMe() {
+            var pos = getPositionOnCircle(myAngleOnCircle, 100);
+            camera3D.position.x = pos.x;
+            camera3D.position.z = pos.z;
+            camera3D.lookAt(0, 0, 0); //start by looking at center of world;
+           // sendOutMessage("");
+        }
 
         function setup() {
             //same as init but some p5 stuff needs to be called from setup
@@ -100,15 +141,31 @@
                     $(this).val(''); //empty the field
                 }
             });
+            setupBodyPix();
         }
 
         function establishYourAvatar() {
             //put random stuff into your stuff to start
             myAngleOnCircle = Math.floor((Math.random() * 360)); //give me a random place on the circle, hack
             myColor = '#' + Math.random().toString(16).substr(-6);  //random color, hack
+            repositionMe();
         }
 
-    
+        function gotBodyPixCanvas(the_canvas) {
+            bodyPixCanvas = the_canvas;
+            bodyPixTexture = new THREE.Texture(bodyPixCanvas);
+            //
+            var geo = new THREE.PlaneGeometry(640, 480);
+            var mat = new THREE.MeshBasicMaterial({ map: bodyPixTexture, transparent: true, side: THREE.DoubleSide });
+            myImage = new THREE.Mesh(geo, mat);
+            //for debuging put this in the center.  Should acutally be unseen like your face
+            myImage.position.x = 0;
+            myImage.position.y = -200;
+            myImage.position.z = 0;
+            myImage.position.z = 0;
+            myImage.rotation.y = Math.PI/2;
+            scene.add(myImage);
+        }
 
         init();  //like setup but you have to call it yourself
         animate();  //like draw you have to kick start and then it calls itself
@@ -209,7 +266,6 @@
                 this.avatarObj = new THREE.Mesh(geo, mat);
                 scene.add(this.avatarObj);
                 //This makes a plane with or without image
-                
             }
 
             newIncomingMessage(msg) {
@@ -217,18 +273,18 @@
                 var pos = getPositionOnCircle(this.angleOnCircle, 300);
                 this.avatarObj.position.x = pos.x;
                 this.avatarObj.position.z = pos.z;
-               
+                this.avatarObj.position.y = 0;
 
                 //add message
                 if (msg.text != "") {  //maybe they were just sending position
-                    this.textMesh = createNewText(msg.text, 0, 0, 0, 0, 0, 0);
-                    this.things.push( this.textMesh);
-                    this.textMesh.position.y = 200*Math.random + 50;
-                    scene.add( this.textMesh);
+                    this.mesh = createNewText(msg.text, 0, 0, 0, 0, 0, 0);
+                    this.things.push(this.mesh);
+                    scene.add(this.mesh);
                 }
             }
 
             animateThings() {
+                
                 for (var i = 0; i < this.things.length; i++) {
                     this.things[i].position.x = this.avatarObj.position.x;
                     this.things[i].position.z = this.avatarObj.position.z;
