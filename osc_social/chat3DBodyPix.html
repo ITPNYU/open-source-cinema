@@ -32,7 +32,7 @@
     </div>
     <div id='container'></div>
     <video id="video" playsinline style="display: none;"></video>
-    <canvas id='canvas' width='512' height='512' style="display: none;"></canvas>
+
 
 
     <!--Here all the p5, three.js, jquery, tensorflow(masking) libaries.  Coming from http CDN addresses allows us to share this code
@@ -48,6 +48,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/body-pix"></script>
 
+
     <script src="//ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js"></script>
     <!-- This is all of our local code-->
     <script src="pano_mouse.js"></script>
@@ -60,6 +61,7 @@
 
     <!-- Instead of having a separate js file the main javascript is added using script tags-->
     <script>
+
         //usual 3D variables
         let scene;
         let camera3D;
@@ -71,9 +73,13 @@
 
         let allClients = [];
 
-        let bodyPixTexture;
-        let myImage;
-        let faceTexture;
+        let myTexture;
+        let myObject;
+        let headTilt;
+        //for a Threejs texture
+        let powerOf2Canvas = document.createElement("CANVAS");
+        powerOf2Canvas.width = 256;
+        powerOf2Canvas.height = 256;
 
 
         //like draw
@@ -85,28 +91,8 @@
             for (var key in allClients) {
                 allClients[key].animateThings();
             }
-         
-            if (bodyPixTexture) {
-                bodyPixTexture.needsUpdate = true;
-                //headTilt is a variable set in bodyPixFaceCanvas
 
-                /*
-                console.log(headTilt);
-            
-                if (headTilt < -20) {
-                    myAngleOnCircle += 1;
-                    console.log("right");
-                    repositionMe()
-                } else if (headTilt > 60) {
-                    myAngleOnCircle -= 1;
-                    console.log("left");
-                    repositionMe()
-                }
-                */
-                
-
-            }
-
+           
         };
 
         function repositionMe() {
@@ -114,7 +100,7 @@
             camera3D.position.x = pos.x;
             camera3D.position.z = pos.z;
             camera3D.lookAt(0, 0, 0); //start by looking at center of world;
-           // sendOutMessage("");
+            // sendOutMessage("");
         }
 
         function setup() {
@@ -151,20 +137,50 @@
             repositionMe();
         }
 
-        function gotBodyPixCanvas(the_canvas) {
+        //called when body pix has a new frame
+        function gotNewBodyPixResult(info) {
+            //now paint the face on a smaller canvas
+            let diffWidth = (powerOf2Canvas.width - info.rect.width) / 2;
+            let diffHeight = (powerOf2Canvas.height - info.rect.height) / 2;
+            powerOf2CanvasCTX = powerOf2Canvas.getContext('2d');
+            powerOf2CanvasCTX.clearRect(0, 0, powerOf2Canvas.width, powerOf2Canvas.height);
+            //return  powerOf2CanvasCTX.getImageData();
+            powerOf2CanvasCTX.putImageData(info.image_data, diffWidth, diffHeight);
+            powerOf2CanvasCTX.restore();
+            if (myTexture) {
+                myTexture.needsUpdate = true;
+                myObject.lookAt(camera3D.position.x, camera3D.position.y, camera3D.position.z);
+                //headTilt is a variable set in bodyPixFaceCanvas
+                //console.log(headTilt);
+                /*
+                if (headTilt < -20) {
+                    myAngleOnCircle += 1;
+                    console.log("right");
+                    repositionMe()
+                } else if (headTilt > 60) {
+                    myAngleOnCircle -= 1;
+                    console.log("left");
+                    repositionMe()
+                }
+                */
+            }
+        }
+        //called when bodypix is ready
+        function bodyPixIsReady(the_canvas) {
+            console.log(the_canvas);
             bodyPixCanvas = the_canvas;
-            bodyPixTexture = new THREE.Texture(bodyPixCanvas);
+            myTexture = new THREE.Texture(bodyPixCanvas);
             //
-            var geo = new THREE.PlaneGeometry(640, 480);
-            var mat = new THREE.MeshBasicMaterial({ map: bodyPixTexture, transparent: true, side: THREE.DoubleSide });
-            myImage = new THREE.Mesh(geo, mat);
+            var geo = new THREE.PlaneGeometry(32, 24);
+            var mat = new THREE.MeshBasicMaterial({ map: myTexture, transparent: true, side: THREE.DoubleSide });
+            myObject = new THREE.Mesh(geo, mat);
             //for debuging put this in the center.  Should acutally be unseen like your face
-            myImage.position.x = 0;
-            myImage.position.y = -200;
-            myImage.position.z = 0;
-            myImage.position.z = 0;
-            myImage.rotation.y = Math.PI/2;
-            scene.add(myImage);
+            myObject.position.x = 0;
+            myObject.position.y = -50;
+            myObject.position.z = 0;
+
+            //myObject.rotation.y = Math.PI/2;
+            scene.add(myObject);
         }
 
         init();  //like setup but you have to call it yourself
@@ -255,11 +271,11 @@
             new3DAvatarObject(type, texture) {
                 //remove old one if you already made one without image
                 if (this.avatarObj) scene.remove(this.avatarObj);
-                var geo = new THREE.BoxGeometry(30, 30,30);
+                var geo = new THREE.BoxGeometry(30, 30, 30);
                 //if you have a picture use it, otherwise color
                 if (type == "canvas") {
-                    bodyPixTexture = new THREE.Texture(texture);
-                    var mat = new THREE.MeshBasicMaterial({ map: bodyPixTexture, transparent: true, side: THREE.DoubleSide });
+                    myTexture = new THREE.Texture(texture);
+                    var mat = new THREE.MeshBasicMaterial({ map: myTexture, transparent: true, side: THREE.DoubleSide });
                 } else {
                     var mat = new THREE.MeshBasicMaterial({ color: texture });
                 }
@@ -284,7 +300,7 @@
             }
 
             animateThings() {
-                
+
                 for (var i = 0; i < this.things.length; i++) {
                     this.things[i].position.x = this.avatarObj.position.x;
                     this.things[i].position.z = this.avatarObj.position.z;
@@ -349,8 +365,8 @@
             myJSON.color = myColor;
             myJSON.angleOnCircle = myAngleOnCircle;
             myJSON.text = txt;
-            if(connection)
-            connection.send(JSON.stringify(myJSON));
+            if (connection)
+                connection.send(JSON.stringify(myJSON));
         }
 
 

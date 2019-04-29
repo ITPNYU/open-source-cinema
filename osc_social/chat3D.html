@@ -108,8 +108,6 @@
             myColor = '#' + Math.random().toString(16).substr(-6);  //random color, hack
         }
 
-    
-
         init();  //like setup but you have to call it yourself
         animate();  //like draw you have to kick start and then it calls itself
 
@@ -198,7 +196,7 @@
             new3DAvatarObject(type, texture) {
                 //remove old one if you already made one without image
                 if (this.avatarObj) scene.remove(this.avatarObj);
-                var geo = new THREE.BoxGeometry(30, 30,30);
+                var geo = new THREE.BoxGeometry(30, 30, 30);
                 //if you have a picture use it, otherwise color
                 if (type == "canvas") {
                     bodyPixTexture = new THREE.Texture(texture);
@@ -217,14 +215,14 @@
                 var pos = getPositionOnCircle(this.angleOnCircle, 300);
                 this.avatarObj.position.x = pos.x;
                 this.avatarObj.position.z = pos.z;
-               
+
 
                 //add message
                 if (msg.text != "") {  //maybe they were just sending position
                     this.textMesh = createNewText(msg.text, 0, 0, 0, 0, 0, 0);
-                    this.things.push( this.textMesh);
-                    this.textMesh.position.y = 100*Math.random() + 40;
-                    scene.add( this.textMesh);
+                    this.things.push(this.textMesh);
+                    this.textMesh.position.y = 100 * Math.random() + 40;
+                    scene.add(this.textMesh);
                 }
             }
 
@@ -232,14 +230,14 @@
                 for (var i = 0; i < this.things.length; i++) {
                     this.things[i].position.x = this.avatarObj.position.x;
                     this.things[i].position.z = this.avatarObj.position.z;
-                    this.things[i].position.y += 1;
+                    this.things[i].position.y += 0.5;
                     this.things[i].rotation.y += 0.2;
                     if (this.things[i].position.y > 150) this.things[i].position.y = 40;
                 }
             }
 
             leave() {
-                scene.remove( this.avatarObj);
+                scene.remove(this.avatarObj);
             }
 
         }
@@ -293,8 +291,8 @@
             myJSON.color = myColor;
             myJSON.angleOnCircle = myAngleOnCircle;
             myJSON.text = txt;
-            if(connection)
-            connection.send(JSON.stringify(myJSON));
+            if (connection)
+                connection.send(JSON.stringify(myJSON));
         }
 
 

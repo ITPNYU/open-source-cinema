@@ -1,6 +1,6 @@
 //install node
 //open a command line and run this "npm install websocket"
-//then run this program in command line with  "node nameOfThisFile.js"9873wde
+//then run this program in command line with  "node nameOfThisFile.js"
 
 //More details about this program
 //https://medium.com/@martin.sikora/node-js-websocket-simple-chat-tutorial-2def3a841b61
