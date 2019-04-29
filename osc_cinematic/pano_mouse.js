@@ -16,7 +16,7 @@ function activatePanoControl(cam){
   myCamera.target = new THREE.Vector3( 0, 0, 0 );
 
   // Listen for window resize
-  window.addEventListener( 'resize', onWindowResize, false );
+ // window.addEventListener( 'resize', onWindowResize, false );
 }
 function onDocumentMouseDown( event ) {
   onPointerDownPointerX = event.clientX;

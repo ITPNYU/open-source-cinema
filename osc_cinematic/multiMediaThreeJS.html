@@ -17,17 +17,16 @@
             left: 0;
             width: 1600px;
             height: 900px;
-            z-index: 0; //bottom layer is streetview
+            z-index: 0; 
         }
 
         #container {
-            //This div contains all the three.js 3D Stuff
             pointer-events: none;
             position: absolute;
             top: 0;
-            z-index: 1; //layered on top  of street view
+            z-index: 1; 
             position: absolute;
-            background-color: transparent; //tranparent for street view behind it
+            background-color: transparent; 
         }
 
         #info {
@@ -40,7 +39,7 @@
             font-size: 13px;
             font-weight: bold;
             text-align: center;
-            z-index: 2; //the user interface boxes on top
+            z-index: 2; 
         }
 
         a {
@@ -59,7 +58,7 @@
         <br> <br>
         Text: <input type="text" id="text">
         <br> <br>
-        Ask Runway: <input type="text" id="runway">(must be running in network mode port :8010)
+        Ask Runway: <input type="text" id="runway"><br>(must be running Runway program with Tx->Img modle like AttnGAN in network mode port :8010)
     </div>
     <!--These are the main divs for three.js and street view-->
     <div id='container'></div>
@@ -132,6 +131,7 @@
         light.position.set(1, 0.75, 0.5);
         scene.add(light);
 
+
         //like setup
         function init() {
             //attach anonymous function to text input boxes 
@@ -145,7 +145,7 @@
             searchPoly("butter");
            // createPanoramicBackgroundInThreeJS();
             //show street views
-            showingStreetviews = false;
+            showingStreetviews = true;
             //add some text
             textMesh = createNewText("sythesis", 0, 0, 0, 0, 0, 0);
             scene.add(textMesh);
