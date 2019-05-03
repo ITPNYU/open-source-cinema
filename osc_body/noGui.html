@@ -59,9 +59,9 @@
         let controls;
         let effect;
         //variables for interaction of picking objects to animate
-        let wordsOrObjects = "words";
+        let wordsOrObjects = "words";  //keeps track of which mode you are in
         let things = [];   //words and poly objects
-        let selectableMeshes = [];  //two cubes?
+        let selectableMeshes = [];  //two cubes
         let selectedMesh;  //which cube
 
         //like draw
@@ -116,7 +116,7 @@
         function init() {
             console.log("initializing three.js")
             basic3DStuff()
-            checkVRStuff();
+            startVRStuff();
             addSomeCubes();
             createPanoramicBackgroundInThreeJS();
 
@@ -128,6 +128,7 @@
 
             //allow clicking with mouse on objects
             document.addEventListener('mousedown', onDocumentMouseDownCheckObject, false); //check for clicks
+        
         }
 
         init();  //like setup but you have to call it yourself
@@ -376,8 +377,8 @@
             request.send(null);
         }
 
-     
-        function checkVRStuff() {
+       
+        function startVRStuff() {
             if (vrHeadSet) {
                 //for VR headset
                 controls = new THREE.DeviceOrientationControls(camera3D);
