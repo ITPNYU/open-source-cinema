@@ -69,7 +69,7 @@
             //recursively call this function is a way that the renderer does it in a smart way
             requestAnimationFrame(animate);
             renderer.render(scene, camera3D);
-            // console.log(allClients.keys);
+
             for (var key in allClients) {
                 allClients[key].animateThings();
             }
@@ -288,15 +288,19 @@
             //add your local stuff to the message
             var myJSON = {};
             myJSON.ID = myID;
-            myJSON.color = myColor;
             myJSON.angleOnCircle = myAngleOnCircle;
             myJSON.text = txt;
+            myJSON.color = myColor;
+            myJSON.type = "text";
+
             if (connection)
                 connection.send(JSON.stringify(myJSON));
         }
 
-
+        //More details about this program
+        //https://medium.com/@martin.sikora/node-js-websocket-simple-chat-tutorial-2def3a841b61
         function gotMessage(json) {
+            console.log(json);
             // NOTE: if you're not sure about the JSON structure
             // check the server source code
             if (json.type === 'initial') { // first response from the server with user's ID (using time)
@@ -309,7 +313,7 @@
                 for (var i = 0; i < json.contents.length; i++) {
                     addMessage(JSON.parse(json.contents[i].utf8Data));
                 }
-            } else if (json.type === 'message') { // it's a single message
+            } else if (json.type === 'text') { // it's a single message
                 addMessage(JSON.parse(json.contents.utf8Data));
             } else {
                 console.log('Hmm..., I\'ve never seen JSON like this: ', json);

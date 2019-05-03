@@ -28,7 +28,7 @@
 
     <!--These are the main divs for three.js -->
     <div id='info'>
-        <input type=text id='input'>
+        <input type=text id='input'><button id='toggle_mirror' type="button">Toggle Mirror</button>
     </div>
     <div id='container'></div>
     <video id="video" playsinline style="display: none;"></video>
@@ -40,6 +40,7 @@
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/0.7.3/p5.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/0.7.3/addons/p5.dom.min.js"></script>
+
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/102/three.min.js"></script>
     <script src="https://threejs.org/examples/js/loaders/OBJLoader.js"></script>
@@ -53,10 +54,6 @@
     <!-- This is all of our local code-->
     <script src="pano_mouse.js"></script>
     <script src="bodyPixFaceCanvas.js"></script>
-    <!--
-           <script src="websocket.js"></script>
-    <script src="client.js"></script>
-    -->
 
 
     <!-- Instead of having a separate js file the main javascript is added using script tags-->
@@ -68,18 +65,21 @@
         let renderer;
 
         let myID;
-        let myAngleOnCircle;
-        let myColor;
+        let myPosition;
+
 
         let allClients = [];
+        let ipAddress = "127.0.0.1";
+        //let ipAddress = "134.209.126.47";
 
         let myTexture;
-        let myObject;
+        let mirror;
         let headTilt;
+
         //for a Threejs texture
         let powerOf2Canvas = document.createElement("CANVAS");
-        powerOf2Canvas.width = 256;
-        powerOf2Canvas.height = 256;
+        powerOf2Canvas.width = 128;
+        powerOf2Canvas.height = 128;
 
 
         //like draw
@@ -87,25 +87,14 @@
             //recursively call this function is a way that the renderer does it in a smart way
             requestAnimationFrame(animate);
             renderer.render(scene, camera3D);
-            // console.log(allClients.keys);
+
             for (var key in allClients) {
                 allClients[key].animateThings();
             }
-
-           
         };
-
-        function repositionMe() {
-            var pos = getPositionOnCircle(myAngleOnCircle, 100);
-            camera3D.position.x = pos.x;
-            camera3D.position.z = pos.z;
-            camera3D.lookAt(0, 0, 0); //start by looking at center of world;
-            // sendOutMessage("");
-        }
 
         function setup() {
             //same as init but some p5 stuff needs to be called from setup
-            console.log("setup  ");
         }
 
         //like setup
@@ -114,7 +103,6 @@
             basic3DStuff()
             //allow mouse to control camera
             activatePanoControl(camera3D); //field mouse dragggin to move camera
-            establishYourAvatar();
             doWebSocketStuff();
             createPanoramicBackgroundInThreeJS();
             /**
@@ -123,18 +111,47 @@
             $("#input").keydown(function (e) {
                 if (e.keyCode === 13) {
                     // send the message as an ordinary text
-                    sendOutMessage($(this).val());
+                    sendText($(this).val());
                     $(this).val(''); //empty the field
                 }
+            });
+            $("#toggle_mirror").click(function(){
+                let mirror_present = scene.getObjectByName('mirror');
+                console.log("Toggle Mirror", mirror_present );
+                if(mirror_present) scene.remove(mirror)
+                else scene.add(mirror);
+
             });
             setupBodyPix();
         }
 
-        function establishYourAvatar() {
-            //put random stuff into your stuff to start
-            myAngleOnCircle = Math.floor((Math.random() * 360)); //give me a random place on the circle, hack
-            myColor = '#' + Math.random().toString(16).substr(-6);  //random color, hack
-            repositionMe();
+        
+        init();  //like setup but you have to call it yourself
+        animate();  //like draw you have to kick start and then it calls itself
+
+        // function establishYourAvatar() {
+        //     //put random stuff into your stuff to start
+        //     myPositionInCircle = Math.floor((Math.random() * 360)); //give me a random place on the circle, hack
+        //     myColor = '#' + Math.random().toString(16).substr(-6);  //random color, hack
+        //     repositionMe();
+        // }
+
+                //called when bodypix is ready
+         function bodyPixIsReady(the_canvas) {
+            bodyPixCanvas = the_canvas;
+            mirrorTexture = new THREE.Texture(bodyPixCanvas);
+            //
+            var geo = new THREE.PlaneGeometry(32, 24);
+            var mat = new THREE.MeshBasicMaterial({ map: mirrorTexture, transparent: true, side: THREE.DoubleSide });
+            mirror = new THREE.Mesh(geo, mat);
+            //for debuging put this in the center.  Should acutally be unseen like your face
+            mirror.position.x = 0;
+            mirror.position.y = 0;
+            mirror.position.z = 0;
+
+            //mirror.rotation.y = Math.PI/2;
+            scene.add(mirror);
+            mirror.name = 'mirror';
         }
 
         //called when body pix has a new frame
@@ -144,48 +161,45 @@
             let diffHeight = (powerOf2Canvas.height - info.rect.height) / 2;
             powerOf2CanvasCTX = powerOf2Canvas.getContext('2d');
             powerOf2CanvasCTX.clearRect(0, 0, powerOf2Canvas.width, powerOf2Canvas.height);
-            //return  powerOf2CanvasCTX.getImageData();
             powerOf2CanvasCTX.putImageData(info.image_data, diffWidth, diffHeight);
             powerOf2CanvasCTX.restore();
-            if (myTexture) {
-                myTexture.needsUpdate = true;
-                myObject.lookAt(camera3D.position.x, camera3D.position.y, camera3D.position.z);
-                //headTilt is a variable set in bodyPixFaceCanvas
+
+            //update the face in scene
+            if (mirrorTexture) {
+                mirrorTexture.needsUpdate = true;
+                mirror.lookAt(camera3D.position.x, camera3D.position.y, camera3D.position.z);
+            }
+
+            //use the orientation of the head to move position around circle
+            //headTilt is a variable set in bodyPixFaceCanvas
                 //console.log(headTilt);
                 /*
                 if (headTilt < -20) {
-                    myAngleOnCircle += 1;
+                    myPositionInCircle += 1;
                     console.log("right");
                     repositionMe()
                 } else if (headTilt > 60) {
-                    myAngleOnCircle -= 1;
+                    myPositionInCircle -= 1;
                     console.log("left");
                     repositionMe()
                 }
                 */
-            }
-        }
-        //called when bodypix is ready
-        function bodyPixIsReady(the_canvas) {
-            console.log(the_canvas);
-            bodyPixCanvas = the_canvas;
-            myTexture = new THREE.Texture(bodyPixCanvas);
-            //
-            var geo = new THREE.PlaneGeometry(32, 24);
-            var mat = new THREE.MeshBasicMaterial({ map: myTexture, transparent: true, side: THREE.DoubleSide });
-            myObject = new THREE.Mesh(geo, mat);
-            //for debuging put this in the center.  Should acutally be unseen like your face
-            myObject.position.x = 0;
-            myObject.position.y = -50;
-            myObject.position.z = 0;
 
-            //myObject.rotation.y = Math.PI/2;
-            scene.add(myObject);
+            //pull the mirror image off canvas and send it to server for distribution
+            let img = powerOf2Canvas.toDataURL();
+            sendPicture(img);
         }
 
-        init();  //like setup but you have to call it yourself
-        animate();  //like draw you have to kick start and then it calls itself
+        //repositions the camera which represents me, not the mirror
+        function repositionMe() {
+            let pos = getPositionOnCircle(myPosition , 200);
+            camera3D.position.x = pos.x;
+            camera3D.position.z = pos.z;
+            camera3D.lookAt(0, 0, 0); //start by looking at center of world;
+            sendPosition();
+        }
 
+        //gives x, y z postion given place around the center in degrees
         function getPositionOnCircle(angle, radius) {
             var rads = angle * Math.PI / 180;
             var z = radius * Math.sin(rads);
@@ -239,6 +253,7 @@
             renderer = new THREE.WebGLRenderer();
             renderer.setSize(window.innerWidth, window.innerHeight);
             camera3D.position.z = 250;
+            camera3D.lookAt(0,0,0);// look at center
 
             // document.body.appendChild(renderer.domElement);
             //this puts the three.js stuff in a particular div
@@ -254,7 +269,6 @@
             scene.add(light);
         }
 
-
         //////////////////////////////////////////////////////////////
         //OBJECT ORIENTED CLASS FOR KEEPING TRACK OF ALL CLIENTS FOR SERVER
         //////////////////////////////////////////////////////////////
@@ -263,44 +277,70 @@
             constructor(msg) {
                 this.ID = msg.ID;
                 this.things = [];
-                this.new3DAvatarObject("color", msg.color);  //create a blank plane
-                //this.cube = new THREE.Mesh(geometry, material);
-                //scene.add(this.cube);
-            }
+                this.canvas = document.createElement("CANVAS");
+                this.canvas.width = 128;
+                this.canvas.height = 128;
+                this.positionOnCircle = msg.positionOnCircle;
 
-            new3DAvatarObject(type, texture) {
-                //remove old one if you already made one without image
-                if (this.avatarObj) scene.remove(this.avatarObj);
-                var geo = new THREE.BoxGeometry(30, 30, 30);
-                //if you have a picture use it, otherwise color
-                if (type == "canvas") {
-                    myTexture = new THREE.Texture(texture);
-                    var mat = new THREE.MeshBasicMaterial({ map: myTexture, transparent: true, side: THREE.DoubleSide });
-                } else {
-                    var mat = new THREE.MeshBasicMaterial({ color: texture });
-                }
+                var geo = new THREE.PlaneGeometry(128, 128);
+                this.texture = new THREE.Texture(this.canvas);
+                let mat = new THREE.MeshBasicMaterial({ map: this.texture, transparent: true, side: THREE.DoubleSide });
+
                 this.avatarObj = new THREE.Mesh(geo, mat);
                 scene.add(this.avatarObj);
-                //This makes a plane with or without image
-            }
-
-            newIncomingMessage(msg) {
-                this.angleOnCircle = msg.angleOnCircle;
-                var pos = getPositionOnCircle(this.angleOnCircle, 300);
+                var pos = getPositionOnCircle(this.positionOnCircle, 300);
                 this.avatarObj.position.x = pos.x;
                 this.avatarObj.position.z = pos.z;
                 this.avatarObj.position.y = 0;
+            }
 
+            newImage(msg) {
+    
+                let ctx = this.canvas.getContext('2d');
+                ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+                let img = new Image();
+
+                img.src = msg.image;
+
+                img.onload = function () {
+                    ctx.drawImage(img, 0, 0);
+
+                }
+                this.texture.needsUpdate = true;
+                this.position = msg.position;
+                var pos = getPositionOnCircle(this.position, 200);
+                this.avatarObj.position.x = pos.x;
+                this.avatarObj.position.z = pos.z;
+                this.avatarObj.position.y = 0;
+                
+            }
+        
+            // newPosition(msg) {
+            //     console.log("position",msg);
+            //     this.position = msg.position;
+            //     var pos = getPositionOnCircle(this.position, 300);
+            //     this.avatarObj.position.x = pos.x;
+            //     this.avatarObj.position.z = pos.z;
+            //     this.avatarObj.position.y = 0;
+            // }
+
+            newIncomingText(msg) {
+                this.position = msg.position;
+                var pos = getPositionOnCircle(this.position, 200);
+                this.avatarObj.position.x = pos.x;
+                this.avatarObj.position.z = pos.z;
+                this.avatarObj.position.y = 0;
+                
                 //add message
                 if (msg.text != "") {  //maybe they were just sending position
                     this.mesh = createNewText(msg.text, 0, 0, 0, 0, 0, 0);
                     this.things.push(this.mesh);
                     scene.add(this.mesh);
                 }
+                console.log(msg.text, this.position);
             }
 
             animateThings() {
-
                 for (var i = 0; i < this.things.length; i++) {
                     this.things[i].position.x = this.avatarObj.position.x;
                     this.things[i].position.z = this.avatarObj.position.z;
@@ -315,6 +355,7 @@
             }
 
         }
+
 
         //////////////////////////////////////////////////////////////
         //WEBSOCKETS
@@ -331,7 +372,8 @@
                 return;
             }
             // open connection
-            connection = new WebSocket('ws://127.0.0.1:1337');
+
+            connection = new WebSocket('ws://' + ipAddress + ':1337');
             connection.onopen = function () {
                 //  any start up events.  usually you pick name but we are using timestamp
             };
@@ -358,33 +400,62 @@
             };
         }
 
-        function sendOutMessage(txt) {
-            //add your local stuff to the message
+        // function sendPosition(image) {
+
+        //     var myJSON = {};
+        //     myJSON.ID = myID;
+        //     myJSON.positionInCircle = myPositionInCircle;
+        //     myJSON.type = "position";
+        //     if (connection)
+        //         connection.send(JSON.stringify(myJSON));
+        // }
+        function sendPicture(image) {
+
             var myJSON = {};
             myJSON.ID = myID;
-            myJSON.color = myColor;
-            myJSON.angleOnCircle = myAngleOnCircle;
-            myJSON.text = txt;
+            myJSON.image = image;
+            myJSON.position = myPosition;
+            myJSON.type = "pic";
             if (connection)
                 connection.send(JSON.stringify(myJSON));
         }
 
+        function sendText(txt) {
+            //add your local stuff to the message
+            var myJSON = {};
+            myJSON.ID = myID;
+            myJSON.position = myPosition;
+            myJSON.text = txt;
+            myJSON.type = "text";
 
+            if (connection)
+                connection.send(JSON.stringify(myJSON));
+        }
+
+        //More details about this program
+//https://medium.com/@martin.sikora/node-js-websocket-simple-chat-tutorial-2def3a841b61
         function gotMessage(json) {
             // NOTE: if you're not sure about the JSON structure
             // check the server source code
+            let messageContent = JSON.parse(json.contents.utf8Data);
             if (json.type === 'initial') { // first response from the server with user's ID (using time)
                 myID = json.contents.ID;
-                console.log("got ID" + myID)
-                // from now user can start sending messages
+                console.log("got ID " + myID + "got assigned position " + json.contents.position);
+                myPosition = json.contents.position;
+                //repositionMe();
+            } else if (json.type === 'text') { // it's a single message
+                tellClient(messageContent, "text")
+            } else if (json.type === 'pic') { // it's a single message
+                tellClient(messageContent, "pic");
+            // } else if (json.type === 'position') { // it's a single message
+            //     tellClient(messageContent, "position")
             } else if (json.type === 'history') { // entire message history
                 // deal with each message in the history
                 console.log("Got History", json);
                 for (var i = 0; i < json.contents.length; i++) {
-                    addMessage(JSON.parse(json.contents[i].utf8Data));
+                    let thisMessageContent = JSON.parse(json.contents[i].utf8Data);
+                    tellClient(thisMessageContent, "message")
                 }
-            } else if (json.type === 'message') { // it's a single message
-                addMessage(JSON.parse(json.contents.utf8Data));
             } else {
                 console.log('Hmm..., I\'ve never seen JSON like this: ', json);
             }
@@ -393,11 +464,20 @@
         /**
          * Deal with the message
          */
-        function addMessage(msg) {
-            if (allClients[msg.ID] == null) {//if it does not exist
-                allClients[msg.ID] = new Client(msg);  //add a new client
+        function tellClient(msg, type) {
+            if (msg.ID == myID) return;  //don't bother if this is message from me
+            let thisClient = allClients[msg.ID] ;
+            if (thisClient  == null) {//if it does not exist
+                thisClient= new Client(msg);  //add a new client
+                allClients[msg.ID] = thisClient;
             }
-            allClients[msg.ID].newIncomingMessage(msg);
+            if (type == "pic") {
+                thisClient.newImage(msg);
+            } else if (type == "text"){
+                thisClient.newIncomingText(msg);
+            // } else if (type == "position"){
+            //     thisClient.newPosition(msg);
+            }
         }
 
     </script>
