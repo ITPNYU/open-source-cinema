@@ -59,12 +59,13 @@
 		<span id="viewer"></span>
 		<div id="info">
 			<span id="asset_name">Title</span><br/>
-			by <span id="asset_author">Author</span>
+			by <span id="asset_author">Author of This</span>
 		</div>
 		
-		<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/102/three.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/110/three.js"></script>
 		<script src="https://threejs.org/examples/js/loaders/OBJLoader.js"></script>
 		<script src="https://threejs.org/examples/js/loaders/MTLLoader.js"></script>
+	
 		<!--<script src="third_party/three.js/js/three.min.js"></script>	
 		<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/102/OBJLoader.js"></script>
 		<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/102/MTLLoader.js"></script>
@@ -160,44 +161,38 @@
                 asset_name.textContent = asset.displayName;
                 asset_author.textContent = asset.authorName;
                 var format = asset.formats.find( format => { return format.formatType === 'OBJ'; } );
-
+				if (format === undefined) { failure("No format found"); return; }
                 if ( format !== undefined ) {
                     var obj = format.root;
                     var mtl = format.resources.find( resource => { return resource.url.endsWith( 'mtl' ) } );
+					var path =   obj.url.slice( 0, obj.url.indexOf( obj.relativePath ) );
+					var mtlLoader = new THREE.MTLLoader();
+					mtlLoader.setCrossOrigin( true );
+					mtlLoader.setPath(  path);
+					mtlLoader.load( mtl.relativePath, function( materials ) {
+					materials.preload();
+					var objLoader = new THREE.OBJLoader();
+					objLoader.setCrossOrigin( true );
+					objLoader.setMaterials( materials );
+					objLoader.setPath( path);
+					objLoader.load( obj.relativePath, function ( object ) {
+						var box = new THREE.Box3();
+                        box.setFromObject( object );
+                        // re-center
+                        var center = box.getCenter();
+                        center.y = box.min.y;
+                        object.position.sub( center );
+						var scaler = new THREE.Group();
+                    	scaler.add( object );
+                        scaler.scale.setScalar( 6 / box.getSize().length() );
+                        container.add( scaler );
 
-                    var path = obj.url.slice( 0, obj.url.indexOf( obj.relativePath ) );
+					} );
 
-                    var loader = new THREE.MTLLoader();
-                    loader.setCrossOrigin( true );
-                    loader.setMaterialOptions( { ignoreZeroRGBs: true } );
-                    loader.setTexturePath( path );
-                    loader.load( mtl.url, function ( materials ) {
-                        var loader = new THREE.OBJLoader();
-                        loader.setMaterials( materials );
-                        loader.load( obj.url, function ( object ) {
-
-                            var box = new THREE.Box3();
-                            box.setFromObject( object );
-
-                            // re-center
-
-                            var center = box.getCenter();
-                            center.y = box.min.y;
-                            object.position.sub( center );
-
-                            // scale
-
-                            var scaler = new THREE.Group();
-                            scaler.add( object );
-                            scaler.scale.setScalar( 6 / box.getSize().length() );
-                            container.add( scaler );
-
-                        } );
-
-                    } );
-
-                }
+					} );
+				}
             }
+			
 		</script>
 	</body>
 </html>
