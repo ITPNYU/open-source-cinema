@@ -1,4 +1,4 @@
-//var runway_img;
+var runway_img;
 let runway_canvas;
 function setup() {
   runway_canvas = createCanvas(512, 512);
@@ -23,7 +23,7 @@ function gotError(error) {
 
 function gotImage(data) {
   console.log("Got Image Data" + data.length);
-  letrunway_img= createImg(data.result,"image generated in runway");
+  let runway_img= createImg(data.result,"image generated in runway");
   runway_img.hide();
   clear();
   image(runway_img, 0, 0);

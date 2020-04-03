@@ -17,7 +17,7 @@ function setup() {
   video.size(160, 120);
   video.hide(); // Hide the video element, and just show the canvas
   bodypix = ml5.bodyPix(video, modelReady);
-  loadP5Sketch(body_pix_p5_canvas.elt,0,0,200); 
+  loadP5Sketch(body_pix_p5_canvas.elt,0,-100,-100); 
   body_pix_p5_canvas.style('display', 'none');// hide this because I want to use in three.js
   console.log("setup body  pix"); 
 }

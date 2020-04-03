@@ -5,20 +5,20 @@
 // Simple Particle System
 // Edited Video: https://www.youtube.com/watch?v=UcdigVaIYAk
 
+
 particles = [];
 let partical_system_p5_canvas;
 function setup() {
-  partical_system_p5_canvas = createCanvas(256, 256);
+  partical_system_p5_canvas = createCanvas(512, 512);
   loadP5Sketch(partical_system_p5_canvas.elt,0,0,200);  
   partical_system_p5_canvas.style('display', 'none');// hide this because I want to use in three.js
   console.log("setup particle system");
 }
 
 
-
 function draw() {
   clear();
-  //background(0);
+
   for (let i = 0; i < 5; i++) {
     let p = new Particle();
     particles.push(p);
@@ -56,7 +56,7 @@ class Particle {
   show() {
     noStroke();
     //stroke(255);
-    fill(255, this.alpha);
+    fill(255, 0, 255, this.alpha);
     ellipse(this.x, this.y, 16);
   }
 
