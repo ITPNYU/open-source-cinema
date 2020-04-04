@@ -10,12 +10,15 @@ const particleSystemSketch = function(p) {
   particles = [];
   let partical_system_p5_canvas;
   p.setup = function (){
-    partical_system_p5_canvas = p.createCanvas(512, 512);
-    loadP5Sketch(partical_system_p5_canvas.elt,0,0,200);  
-    partical_system_p5_canvas.style('display', 'none');// hide this because I want to use in three.js
-    console.log("setup particle system");
-  };
+  partical_system_p5_canvas = p.createCanvas(512, 512);
+  //    loadP5Sketch(partical_system_p5_canvas.elt,0,0,200);   calling this from threejs
+  partical_system_p5_canvas.style('display', 'none');// hide this because I want to use in three.js
+  console.log("setup particle system");
+};
   
+  p.getP5Canvas = function(){
+    return partical_system_p5_canvas.elt;
+  }
   
   p.draw = function(){
     p.clear();

@@ -86,6 +86,8 @@
     <br> <br>
     Panorama File In Threejs:<input type="input" style="text-align:center;" value="ruin.jpg" size="15" id="panoFile">
     <br> <br>
+    Create P5 Instance:<button id="instanceCreater">New Particle System</button>
+    <br> <br>
 </div>
 
 
@@ -110,16 +112,13 @@ without sharing the files for the libaries
 
 <script src="https://unpkg.com/ml5@0.4.3/dist/ml5.min.js"></script>
 
-
-
-
-<script src="TalkToRunwayP5Instance.js"></script> 
-
 <!-- This is all of our local code
+
+-->
+<script src="TalkToRunwayP5Instance.js"></script> 
 <script src="ParticleSystemP5Instance.js"></script>
 <script src="BodyPixP5.js"></script> 
 
--->
 
 <!-- This is the librarie for the google street views which loads and then calls function
 within our code. You get your own api key at the creditial part of https://console.developers.google.com -->
@@ -165,20 +164,22 @@ var light = new THREE.DirectionalLight(0xffffff, 0.75);
 light.position.set(1, 0.75, 0.5);
 scene.add(light);
 
+
+
 //like setup
 function init() {
-   // let particleSystem = new p5(particleSystemSketch );
+
     let runway = new p5(runwayText2PictureSketch);
    // let bodypix = new p5(BodyPixSketch );  //can't use instance with bodypix without dev version of ml5
-    //attach anonymous function to text input boxes, for educational purposes two other ways commmented:
+    
+   
+   //attach anonymous function to text input boxes, for educational purposes two other ways commmented:
     //JQUERY STYLEL: $("#street").change(function () { searchPoly($("#street").val()); });  
     //P5 STYLE: select('street').input(initializeGoogleMaps);  
     //BUT BELOW IS PLAIN JAVASCRIPT STYLE
     var primitive = document.getElementById("primitive");
     primitive.addEventListener("change", function (e) {
-        //if (e.keyCode === 13) {  //checks whether the pressed key is "Enter"
         createPrimitive(primitive.value);
-       // }
     });
     var street = document.getElementById("street");
     street.addEventListener("keydown", function (e) {
@@ -209,6 +210,10 @@ function init() {
         if (e.keyCode === 13) {  //checks whether the pressed key is "Enter"
         createPanoramicBackgroundInThreeJS(panoFileInput.value);
         }
+    });
+    var p5MakerButton = document.getElementById("instanceCreater");
+        p5MakerButton.addEventListener("click", function (e) {
+            createP5Instance();
     });
     //use the code in pano_mouse.js to move the camera around, code at bottom
     activatePanoControl(camera3D); //field mouse dragggin to move camera
@@ -260,12 +265,20 @@ function createPrimitive(which){
     }else{
         var geometry = new THREE.BoxGeometry(20, 20, 20);
     }
+    //DO ALL THE REST OF THE GEOMETRIES IF YOU WANT THEM
     var material = new THREE.MeshBasicMaterial({ color: 0xff0000 });
     var cube = new THREE.Mesh(geometry, material);
     scene.add(cube);
     primitives.push(cube);
 }
 
+function createP5Instance(){
+    let particleSystem = new p5(particleSystemSketch );
+    const posInWorld = new THREE.Vector3();
+    in_front_of_you.getWorldPosition(posInWorld) ;
+    let c =particleSystem.getP5Canvas();
+    loadP5Sketch(c,posInWorld.x,posInWorld.y,posInWorld.z);  
+}
 function createPanoramicBackgroundInThreeJS(address) {
     //create a sphere to put the panoramic image (can be video) on it
     var geometry = new THREE.SphereGeometry(500, 60, 40);
@@ -329,8 +342,6 @@ function loadP5Sketch(p5_canvas,x,y,z) {
     let p5Texture = new THREE.Texture(p5_canvas);
     let mat = new THREE.MeshBasicMaterial({ map: p5Texture, transparent: true, opacity: 1, side: THREE.DoubleSide });
     textures.push(p5Texture); //remember to update in animation
-
-
 
     let plane = new THREE.Mesh(geo, mat);
     scene.add(plane);

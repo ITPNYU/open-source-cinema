@@ -15,7 +15,6 @@ function setup() {
   console.log("setup particle system");
 }
 
-
 function draw() {
   clear();
 
