@@ -1,0 +1,73 @@
+<html>
+
+<head>
+    <title>Simple P5 and Cube.js</title>
+    <style>
+        body {
+            margin: 0;
+        }
+
+        canvas {
+            width: 100%;
+            height: 100%
+        }
+    </style>
+</head>
+
+<body>
+  
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/0.5.7/p5.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/0.5.7/addons/p5.dom.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/0.5.7/addons/p5.sound.min.js"></script>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/2.2.0/jquery.min.js"></script>
+    <script src="ParticleSystemP5.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r83/three.min.js"></script>
+    <script>
+        var scene = new THREE.Scene();
+        var camera3D = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+
+        var renderer = new THREE.WebGLRenderer();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+
+        var   p5Texture ;
+        var geometry = new THREE.BoxGeometry(1, 1, 1);
+        var material = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
+        var cube = new THREE.Mesh(geometry, material);
+        scene.add(cube);
+
+        camera3D.position.z = 10;
+
+        function init(){
+            console.log("init loaded");
+        }
+
+        var animate = function () {
+            requestAnimationFrame(animate);
+             if(p5Texture) p5Texture.needsUpdate = true;
+            cube.rotation.x += 0.01;
+            cube.rotation.y += 0.01;
+            renderer.render(scene, camera3D);
+        };
+
+        animate();
+
+        function loadP5Sketch(p5Canvas,x,y,z) {
+            ////PUT IN A P5 SKETCH USING THE CANVAS MADE IN P5 AS A TEXTURE
+            geo = new THREE.PlaneGeometry(512, 512);
+            p5Texture = new THREE.Texture(p5Canvas);
+            console.log("added texture");
+            mat = new THREE.MeshBasicMaterial({ map: p5Texture, transparent: true, opacity: 1, side: THREE.DoubleSide });
+            var plane = new THREE.Mesh(geo, mat);
+            plane.position.z = -200;
+            plane.position.y = y;
+            plane.rotation.x = x;  //-Math.PI/2;
+            plane.scale.set(1, 1, 1);
+            scene.add(plane);
+            
+        }
+
+    </script>
+</body>
+
+</html>
