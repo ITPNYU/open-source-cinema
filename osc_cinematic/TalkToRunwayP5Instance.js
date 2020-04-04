@@ -10,6 +10,13 @@ p.setup = function () {
     console.log("setup runway"); 
   };
 
+p.draw = function () {
+   if(runway_img){
+    p.clear();
+    p.image(runway_img, 0, 0);
+   }
+  };
+
 talkToRunway = function(query) {
     const path = 'http://localhost:8000/query';
     console.log("askit");
@@ -24,12 +31,9 @@ gotRunwayError = function(error) {
   }
 
 gotRunwayImage = function(data) {
-    //console.log(data.result);
-    let runway_img= p.createImg(data.result,"image generated in runway");
+    console.log(data.result);
+    runway_img= p.createImg(data.result,"image generated in runway");
     runway_img.hide();
-    p.clear();
-    p.image(runway_img, 0, 0);
-    console.log("got runway picture");
   }
 
 };

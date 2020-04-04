@@ -31,7 +31,7 @@
 
 
         #textFieldInterface {
-            background-color: #ddd5d533;
+            background-color: #00000000;
             position: absolute;
             top: 0px;
             width: 30%;
@@ -60,13 +60,27 @@
 
 <!--These are the user interface boxes-->
 <div id="textFieldInterface">
-    Text: <input type="text" id="text">
+    Text: <input type="text" value='car' id="text">
     <br> <br>
-    Primitive: <input type="text" value="sphere"  id="primitive">
+    Primitive: <select  id="primitive">
+        <option value="Plane">Plane</option>
+        <option value="Box">Box</option>
+        <option value="Sphere">Sphere</option>
+        <option value="Cone">Cone</option>
+        <option value="DodecahedronGeometry">Dodecahedron</option>
+        <option value="IcosahedronGeometry">Icosahedron</option>
+        <option value="OctahedronGeometry">Octahedron</option>
+        <option value="TetrahedronGeometry">Tetrahedron</option>
+        <option value="TextGeometry">Text</option>
+        <option value="TorusGeometry">Torus</option>
+        <option value="TorusKnotGeometry">TorusKnot</option>
+        <option value="TubeGeometry">Tube</option>
+      </select>
+
     <br> <br>
     Poly:<input type="input" style="text-align:center;" value="car" size="15" id="poly">
     <br> <br>
-    Ask Runway: <input type="text" id="runway">(Run Runway with Tx->Img like AttnGAN )
+    Ask Runway: <input type="text" value='car' id="runway">(Run Runway with Tx->Img like AttnGAN )
     <br> <br>
     Google Street In A Div:<input type="input" style="text-align:center;" value="New York" size="15" id="street">
     <br> <br>
@@ -153,7 +167,7 @@ scene.add(light);
 
 //like setup
 function init() {
-    //let particleSystem = new p5(particleSystemSketch );
+   // let particleSystem = new p5(particleSystemSketch );
     let runway = new p5(runwayText2PictureSketch);
    // let bodypix = new p5(BodyPixSketch );  //can't use instance with bodypix without dev version of ml5
     //attach anonymous function to text input boxes, for educational purposes two other ways commmented:
@@ -161,10 +175,10 @@ function init() {
     //P5 STYLE: select('street').input(initializeGoogleMaps);  
     //BUT BELOW IS PLAIN JAVASCRIPT STYLE
     var primitive = document.getElementById("primitive");
-    primitive.addEventListener("keydown", function (e) {
-        if (e.keyCode === 13) {  //checks whether the pressed key is "Enter"
+    primitive.addEventListener("change", function (e) {
+        //if (e.keyCode === 13) {  //checks whether the pressed key is "Enter"
         createPrimitive(primitive.value);
-        }
+       // }
     });
     var street = document.getElementById("street");
     street.addEventListener("keydown", function (e) {
@@ -209,6 +223,7 @@ var animate = function () {
     //you have to remind three.js that the textures may have changed in other programs
     for(var i = 0; i < textures.length; i++){
         textures[i].needsUpdate = true;
+
     }
     for(var i = 0; i < polyObjects.length; i++){
         polyObjects[i].rotation.y += .01 ;
@@ -223,10 +238,8 @@ var animate = function () {
     }
 
     for(var i = 0; i < texts.length; i++){
-        //move stuff around
-        //texts[i].rotation.y += .01 ;
-        //texts[i].position.z -= 1;
-        //if (texts[i].position.z < -200) texts[i].position.z = 200;
+       // texts[i].needsUpdate = true;
+        
     }
     //TICKLE THE RENDERER
     renderer.render(scene, camera3D);
@@ -240,8 +253,10 @@ function createPrimitive(which){
     //This makes a primitive cube
     //Everything follows the same pattern, make geometry, material 
     //and then combine into mesh that you add to scene.  It is the mesh that you control
-    if (which == "sphere"){
+    if (which == "Sphere"){
         var geometry = new THREE.SphereGeometry(20, 20, 20);
+    } else  if (which == "Plain"){
+        var geometry  = new THREE.PlaneGeometry(1, 1);
     }else{
         var geometry = new THREE.BoxGeometry(20, 20, 20);
     }
@@ -310,27 +325,30 @@ function initializeGoogleMaps(loc) {
 function loadP5Sketch(p5_canvas,x,y,z) {
 //function loadP5Sketch() {
     ////PUT IN A P5 SKETCH USING THE CANVAS MADE IN P5 AS A TEXTURE
-    console.log("loaded Particle system");
     let geo = new THREE.PlaneGeometry(512, 512);
     let p5Texture = new THREE.Texture(p5_canvas);
     let mat = new THREE.MeshBasicMaterial({ map: p5Texture, transparent: true, opacity: 1, side: THREE.DoubleSide });
-   
+    textures.push(p5Texture); //remember to update in animation
+
+
+
     let plane = new THREE.Mesh(geo, mat);
     scene.add(plane);
     plane.position.x = x;
     plane.position.y = y;
     plane.position.z = z;
-    //const posInWorld = new THREE.Vector3();
-   // in_front_of_you.getWorldPosition(posInWorld) ;
-    //plane.position.set(posInWorld.x, posInWorld.y, posInWorld.z);
-
+    const posInWorld = new THREE.Vector3();
+    in_front_of_you.getWorldPosition(posInWorld) ;
+    plane.position.set(posInWorld.x+100, posInWorld.y-100, posInWorld.z);
+    console.log("loaded P5 texture")
     plane.scale.set(1, 1, 1);
 
-    textures.push(p5Texture); //remember to update in animation
+
 }
 
 //this puts text on a canvase instead of using 3d text
 function createNewText(text_msg) {
+
     var canvas = document.createElement("canvas");
     canvas.width = 256;
     canvas.height = 128;
@@ -343,16 +361,19 @@ function createNewText(text_msg) {
     context.fillText(text_msg, canvas.width / 2, canvas.height / 2);
     var textTexture = new THREE.Texture(canvas);
     textTexture.needsUpdate = true;
+    texts.push(textTexture);
     var material = new THREE.MeshBasicMaterial({ map: textTexture, transparent: true });
-    var mesh = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), material);
+    var geo = new THREE.PlaneGeometry(1, 1);
+    var mesh = new THREE.Mesh(geo, material);
+
     //copy the little green (invisible? ) box that you added to follow camera
     const posInWorld = new THREE.Vector3();
     in_front_of_you.getWorldPosition(posInWorld) ;
     mesh.position.set(posInWorld.x, posInWorld.y, posInWorld.z);
-
-    mesh.scale.set(5, 5, 5);
+    mesh.scale.set(10,10, 10);
     scene.add(mesh);
     texts.push(mesh);
+
 }
 
 //this asks poly for a model based on a key
