@@ -36,6 +36,6 @@ function gotResults(err, result) {
   segmentation = result;
   clear();
   image(segmentation.personMask, 0, 0);
-
-bodypix.segmentWithParts(gotResults, options);
+  bodypix.segmentWithParts(gotResults, options);
+  //bodypix.segment(gotResults, options);
 }

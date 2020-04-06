@@ -2,9 +2,9 @@ const runwayText2PictureSketch = function(p) {
   
   var runway_img;
   let runway_canvas;
-p.setup = function () {
+  p.setup = function () {
     runway_canvas = p .createCanvas(512, 512);
-  //  runway_img = createImage(width,height);
+    //  runway_img = createImage(width,height);
     loadP5Sketch(runway_canvas.elt,0,0,0); 
     runway_canvas.style('display', 'none');// hide this because I want to use in three.js
     console.log("setup runway"); 
