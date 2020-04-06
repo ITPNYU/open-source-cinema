@@ -134,7 +134,7 @@ var scene = new THREE.Scene();
 var camera3D = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 1000);
 var renderer = new THREE.WebGLRenderer({ alpha: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
-camera3D.position.z = 0;
+camera3D.position.z = 10;
 scene.add(camera3D);//add the camera to the scene
 
 //collections of things you have made for tending in the animate function
@@ -262,14 +262,14 @@ function createPrimitive(which){
     //Everything follows the same pattern, make geometry, material 
     //and then combine into mesh that you add to scene.  It is the mesh that you control
     if (which == "Sphere"){
-        var geometry = new THREE.SphereGeometry(20, 20, 20);
+        var geometry = new THREE.SphereGeometry(10, 10, 10);
     } else  if (which == "Plain"){
         var geometry  = new THREE.PlaneGeometry(1, 1);
     }else{
-        var geometry = new THREE.BoxGeometry(20, 20, 20);
+        var geometry = new THREE.BoxGeometry(10, 10, 10);
     }
     //DO ALL THE REST OF THE GEOMETRIES IN SELECT MENU IF YOU WANT THEM
-    var material = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+    var material = new THREE.MeshBasicMaterial({ color: 0xff00ff });
     var cube = new THREE.Mesh(geometry, material);
     scene.add(cube);
     primitives.push(cube);
@@ -297,7 +297,7 @@ function loadP5Sketch(p5_canvas,x,y,z) {
     plane.position.z = z;
     let front = getCoordsInFrontOfCamera();
     plane.position.set(front.x, front.y, front.z);
-    console.log("loaded P5 texture")
+    console.log("textured a plane")
     plane.scale.set(1, 1, 1);
 }
 function createPanoramicBackgroundInThreeJS(address) {
