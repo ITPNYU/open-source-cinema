@@ -1,0 +1,552 @@
+<html>
+
+<head>
+    <title>No Gui</title>
+
+    <!--Styling using CSS-->
+    <style>
+        body {
+            background-color: #000000;
+            margin: 0px;
+            overflow: hidden;
+        }
+
+        #pano {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 1600px;
+            height: 900px;
+            z-index: 0;
+        }
+
+        #container {
+            pointer-events: none;
+            position: absolute;
+            top: 0;
+            z-index: 1;
+            position: absolute;
+            background-color: transparent;
+        }
+
+
+        #mode{
+            background-color: #00000000;
+            position: absolute;
+            top: 0px;
+            width: 100%;
+            color: #ffffff;
+            padding: 5px;
+            font-family: Monospace;
+            font-size: 32px;
+            font-weight: bold;
+            text-align: center;
+            z-index: 3;
+
+        }
+
+        a {
+            color: #ffffff;
+        }
+    </style>
+
+</head>
+<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+
+<body>
+
+    <!--These are the main divs for three.js and street view-->
+    <div id='container'></div>
+    <div id="pano"></div>
+    <div id="mode"></div>
+
+    <!--Here all the p5, three.js, jquery and your own local coe.  Coming from http CDN addresses allows us to share this code
+without sharing the files for the libaries
+</script>
+-->
+
+
+    <script src="https://cdn.jsdelivr.net/npm/p5@1.0.0/lib/p5.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/0.9.0/addons/p5.dom.min.js"></script>
+    <!--<script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/0.5.7/addons/p5.sound.min.js"></script>-->
+
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/2.2.0/jquery.min.js"></script>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/110/three.js"></script>
+    <script src="https://threejs.org/examples/js/loaders/OBJLoader.js"></script>
+    <script src="https://threejs.org/examples/js/loaders/MTLLoader.js"></script>
+
+    <script src="https://unpkg.com/ml5@0.5.0/dist/ml5.min.js"></script>
+
+    <!-- This is all of our local code
+<script src="https://unpkg.com/ml5@latest/dist/ml5.min.js" type="text/javascript"></script>
+<script src="TalkToRunwayP5Instance.js"></script> 
+<script src="ParticleSystemP5Instance.js"></script>
+<script src="BodyPixP5.js"></script> 
+-->
+    <script src="LiquidGANPuppetP5Instance.js"></script>
+    <script src="PoseNetP5Instance.js"></script>
+    <script src="GoogleAPIsPolyAndMaps.js"></script>
+
+
+
+
+
+    <!-- This is the librarie for the google street views which loads and then calls function
+within our code. You get your own api key at the creditial part of https://console.developers.google.com -->
+    <script async defer src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBi_F0gaMWtXi8Ngerunlwe1vRFkjy8cdI">
+    // with call back at end  src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBi_F0gaMWtXi8Ngerunlwe1vRFkjy8cdI&callback=initializeGoogleMaps">
+    </script>
+
+    <!-- Instead of having a separate js file the main javascript is added using script tags-->
+    <script>
+
+        //all three.js programs have a scene, a camera and a renderer
+        var scene = new THREE.Scene();
+        var camera3D = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 1000);
+        var renderer = new THREE.WebGLRenderer({ alpha: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        camera3D.position.z = 10;
+        scene.add(camera3D);//add the camera to the scene
+
+        //collections of things you have made for tending in the animate function
+        var textures = [];
+        var polyObjects = [];
+        var texts = [];
+        primitives = [];
+        var planes = [];
+        
+        var modeDir = 0;
+        var modesOfConjuring = ["Text", "Poly", "Runway", "Rest","Setting","Shape"];
+        var modeIndex =3;
+        var mode = "Rest";
+
+
+        //speach variables
+        var recognition;
+        var recognizing = false;
+
+        var selectedObj;
+        var grabMode = false;
+
+        var runwayLiquidPuppet ;
+        //posenet variables
+        let myPoseNet;
+        let poseNetProxy;
+
+        //vr variables
+        let vrHeadSet = false;
+        let controls;
+        let effect;
+
+        //tiny little dot (could be invisible) for placing things in front of you
+        var geometryFront = new THREE.BoxGeometry(1, 1, 1);
+        var materialFront = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
+        var in_front_of_you = new THREE.Mesh(geometryFront, materialFront);
+        camera3D.add(in_front_of_you); // then add in front of the camera so it follow it
+        in_front_of_you.position.set(0, 0, -50);
+        //convenience function for getting coordinates
+        function getCoordsInFrontOfCamera() {
+            const posInWorld = new THREE.Vector3();
+            in_front_of_you.getWorldPosition(posInWorld);
+            return posInWorld;
+        }
+
+
+        //this puts the three.js stuff in a particular div
+        document.getElementById('container').appendChild(renderer.domElement)
+
+        //add some lights if you want
+        var ambient = new THREE.HemisphereLight(0xbbbbff, 0x886666, 0.75);
+        ambient.position.set(-0.5, 0.75, -1);
+        scene.add(ambient);
+
+        var light = new THREE.DirectionalLight(0xffffff, 0.75);
+        light.position.set(1, 0.75, 0.5);
+        scene.add(light);
+
+        function setup(){
+            //just putting an empty one of these here allows you to use p5 functions
+        }
+
+
+        //like setup
+        function init() {
+            startPoseNet();
+            startWebSpeech();
+            runwayLiquidPuppet = new p5(LiquidGANPuppetP5Instance);
+          // runwayLiquidPuppet.talkToRunway();
+            //let bodypix = new p5(BodyPixSketch );  //can't use instance with bodypix without dev version of ml5
+
+            //use the code in pano_mouse.js to move the camera around, code at bottom
+            activatePanoControl(camera3D); //field mouse dragggin to move camera
+
+        }
+
+        function startWebSpeech(){
+            if (!('webkitSpeechRecognition' in window)) {
+                upgrade();
+            } else {
+                recognition = new webkitSpeechRecognition();
+                recognition.continuous = true;
+                recognition.interimResults = false;
+
+                recognition.onstart = function() {recognizing =true; console.log('started speech rec') }
+                recognition.onresult =  function (data){
+                    let spoken = data.results[data.results.length-1][0].transcript;
+                    console.log(spoken);
+                    if(spoken == "grab"){
+                        grabMode = true;
+                    //} else if (spoken == "release"){
+                      //  grabMode = false;
+                    }
+                    if (mode == "Text") {
+                        //add a word texture
+                        createNewText(spoken);
+                    } else if (mode == "Poly") {
+                        //add a poly object
+                        searchPoly(spoken);
+                    } else if (mode == "Runway") {
+                        //add a poly object
+                        //  runwayLiquidPuppet.setPuppetSkin(spoken.toLowerCase());
+                        runwayLiquidPuppet.talkToRunway();
+                        // talkToRunway();
+                        
+                    } else if (mode == "Setting") {
+                        //add a poly object
+                        askForLatLong(spoken);
+                    } else if (mode == "Shape") {
+                        //add a poly object
+                        createPrimitive(spoken);
+                    }
+                }
+
+                recognition.onerror = function(event) {console.log(event); recognizing = false }
+                recognition.onend = function() { recognizing = false; console.log('ended speech rec')  }
+                recognition.start();
+            }
+        }
+
+        function startPoseNet(){
+            myPoseNet = new p5(poseNetSketch);
+            console.log("Start Up PoseNet")
+            //This makes a primitive cube to be a proxy for a point from Posenet
+            var geometry = new THREE.BoxGeometry(1, 2, 2);
+            var material = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+            poseNetProxy = new THREE.Mesh(geometry, material);
+            camera3D.add(poseNetProxy);
+            poseNetProxy.position.z = -50;
+        }
+
+        //like draw
+        var animate = function () {
+            //recursively call this function is a way that the renderer does it in a smart way
+            requestAnimationFrame(animate);
+
+            let myPoses = myPoseNet.getPoses();
+            // with an array every time new poses are detected
+            if (myPoses.length > 0) {
+                //find the right wrist locations from posenet
+                let x = ((640 - myPoses[0].pose.rightWrist.x) - 320)/4;
+                let y = ((480 - myPoses[0].pose.rightWrist.y) - 240)/4;
+        
+                var foundObj = checkIfOverObject(x / 320, y / 240);
+                poseNetProxy.position.x = x;
+                poseNetProxy.position.y = y;
+               
+              
+                let distanceFromHandToNose = dist(myPoses[0].pose.rightWrist.x,myPoses[0].pose.rightWrist.y,myPoses[0].pose.nose.x,myPoses[0].pose.nose.y);
+                if (distanceFromHandToNose < 100 &&   recognizing == false){
+                    console.log("hand near nose");
+                   recognition.start();
+
+                }
+            
+                changeModesBasedOnAngleOfEyes( myPoses[0].pose.leftEye.x,myPoses[0].pose.leftEye.y,myPoses[0].pose.rightEye.x,myPoses[0].pose.rightEye.y);
+            }
+            //you have to remind three.js that the textures may have changed in other programs
+            for (var i = 0; i < textures.length; i++) {
+                textures[i].needsUpdate = true;
+            }
+
+
+            //rotate anything that the posenetProxy went over
+            if (selectedObj ){
+                selectedObj.rotation.y += .01;
+                console.log(grabMode);
+                if( grabMode){
+                    foundObj.positon.x = poseNetProxy.position.x ;
+                    foundObj.positon.y = poseNetProxy.position.y ;
+                }
+            }
+           
+            //TICKLE THE RENDERER
+            renderer.render(scene, camera3D);
+
+        };
+
+        init();  //like setup but you have to call it yourself
+        animate();  //like draw you have to kick start and then it calls itself
+
+
+        function changeModesBasedOnAngleOfEyes(leftx,lefty,rightx,righty){
+              //find the angle between the eyes
+              let xDiff = leftx - rightx;
+               let yDiff = lefty - righty;
+                //console.log(yDiff/xDiff);
+                angle = Math.atan2(yDiff, xDiff);
+                //have head tilt change mode 
+                if (angle > 0.3){
+                    modeDir = 0.01;
+                }else if (angle < -0.3){
+                    modeDir = -0.01;
+                }else {
+                    modeDir = 0;
+                }
+                modeIndex = Math.max(0,Math.min(5,modeIndex  + modeDir));
+                let newMode = modesOfConjuring[modeIndex.toFixed(0)];
+                //check if there is a change and make sure speach is listening
+                if(newMode != mode ) {
+                    console.log(newMode);
+                    if (recognizing == false){
+        
+                        recognition.start();
+                        recognizing = true;
+                    }
+                }
+                mode = newMode;
+                document.getElementById("mode").innerHTML = "Mode:" + mode;
+               // console.log(mode);
+        }
+
+        //checks against the list of grabbableMeshes for what you have clicked on to make it the "selectedObject"
+        function onDocumentMouseDownCheckObject(e) {
+            console.log("clicked");
+            checkIfOverObject((event.clientX / renderer.domElement.clientWidth) * 2 - 1, -(event.clientY / renderer.domElement.clientHeight) * 2 + 1);
+        }
+
+        //this uses a raycaster to project 3D intersection points from 2D coordinate from mouse or poseNet
+        //not the x and y are pos and neg numbers between 0-1 representing distance from center of screen not for example 0-640
+        function checkIfOverObject(x, y) {
+            // console.log(selectableMeshes);
+            // console.log(x,y);
+            var raycaster = new THREE.Raycaster(); // create once
+            var mouse = new THREE.Vector2(); // create once
+            mouse.x = x;
+            mouse.y = y;
+            raycaster.setFromCamera(mouse, camera3D);
+            var intersects = raycaster.intersectObjects(primitives, true);
+            var tempobj;
+            for (var i = 0; i < intersects.length; i++) {
+                var intersection = intersects[i],
+                    tempobj = intersection.object;
+                //break;
+            }
+            if (tempobj) {
+                selectedObj = tempobj;
+               // console.log("over " + selectedObj);
+            } else {
+                selectedObj = null;
+            }
+            return selectedObj;
+
+        }
+        function createPrimitive(which) {
+            //This makes a primitive cube
+            //Everything follows the same pattern, make geometry, material 
+            //and then combine into mesh that you add to scene.  It is the mesh that you control
+            if (which == "sphere") {
+                var geometry = new THREE.SphereGeometry(10, 10, 10);
+            } else if (which == "cylinder") {
+                var geometry = new THREE.CylinderGeometry(5, 5, 20, 32 );
+            } else if (which == "cone") {
+                var geometry = new THREE.ConeGeometry( 5, 20, 32 );
+            } else {
+                var geometry = new THREE.BoxGeometry(10, 10, 10);
+            }
+            //DO ALL THE REST OF THE GEOMETRIES IN SELECT MENU IF YOU WANT THEM
+            var material = new THREE.MeshBasicMaterial({ color: 0xff00ff });
+            var obj = new THREE.Mesh(geometry, material);
+            scene.add(obj);
+            let front = getCoordsInFrontOfCamera();
+            obj.position.set(front.x, front.y, front.z);
+            primitives.push(obj);
+        }
+
+        function createP5Instance(which) {
+            let sketchInstance = new p5(which);  //this name is in your sketch
+            let sketchCanvas = sketchInstance.getP5Canvas();
+            let front = getCoordsInFrontOfCamera();
+            loadP5Sketch(sketchCanvas, front.x, front.y, front.z);
+        }
+
+        //you have to call this in your other code eg P5Sketch if not an instance
+        function loadP5Sketch(p5_canvas, x, y, z) {
+            ////PUT IN A P5 SKETCH USING THE CANVAS MADE IN P5 AS A TEXTURE
+            let geo = new THREE.PlaneGeometry(512, 512);
+            let p5Texture = new THREE.Texture(p5_canvas);
+            let mat = new THREE.MeshBasicMaterial({ map: p5Texture, transparent: true, opacity: 1, side: THREE.DoubleSide });
+            textures.push(p5Texture); //remember to update in animation
+
+            let plane = new THREE.Mesh(geo, mat);
+            scene.add(plane);
+            plane.position.x = x;
+            plane.position.y = y;
+            plane.position.z = z;
+            let front = getCoordsInFrontOfCamera();
+            //plane.position.set(front.x, front.y, front.z);
+            console.log("textured a plane")
+            plane.scale.set(1, 1, 1);
+        }
+
+        function createPanoramicBackgroundInThreeJS(address) {
+            //create a sphere to put the panoramic image (can be video) on it
+            var geometry = new THREE.SphereGeometry(500, 60, 40);
+            geometry.scale(-1, 1, 1);
+            var material = new THREE.MeshBasicMaterial({
+                map: new THREE.TextureLoader().load(address)
+            });
+            var mesh = new THREE.Mesh(geometry, material);
+            scene.add(mesh);
+            planes.push(mesh);
+        }
+
+
+        //this puts text on a canvase instead of using 3d text
+        function createNewText(text_msg) {
+
+            var canvas = document.createElement("canvas");
+            canvas.width = 256;
+            canvas.height = 128;
+            var context = canvas.getContext("2d");
+            context.clearRect(0, 0, canvas.width, canvas.height);
+            var fontSize = Math.max(camera3D.fov / 2, 72);
+            context.font = fontSize + "pt Arial";
+            context.textAlign = "center";
+            context.fillStyle = "white";
+            context.fillText(text_msg, canvas.width / 2, canvas.height / 2);
+            var textTexture = new THREE.Texture(canvas);
+            textTexture.needsUpdate = true;
+            texts.push(textTexture);
+            var material = new THREE.MeshBasicMaterial({ map: textTexture, transparent: true });
+            var geo = new THREE.PlaneGeometry(1, 1);
+            var mesh = new THREE.Mesh(geo, material);
+
+            //copy the little green (invisible? ) box that you added to follow camera
+            let front = getCoordsInFrontOfCamera();
+            mesh.position.set(front.x, front.y, front.z);
+            mesh.scale.set(10, 10, 10);
+            scene.add(mesh);
+            texts.push(mesh);
+
+        }
+
+
+        function createObject(path, mtl, obj) {
+            // console.log(path, mtl, obj);
+            var mtlLoader = new THREE.MTLLoader();
+            mtlLoader.setCrossOrigin(true);
+            mtlLoader.setPath(path);
+            mtlLoader.load(mtl, function (materials) {
+                materials.preload();
+                var objLoader = new THREE.OBJLoader();
+                objLoader.setCrossOrigin(true);
+                objLoader.setMaterials(materials);
+                objLoader.setPath(path);
+                objLoader.load(obj, function (object) {
+
+                    //scaler
+                    var box = new THREE.Box3();
+                    box.setFromObject(object);
+                    var scaler = new THREE.Group();
+                    scaler.add(object);
+                    var boxSize = new THREE.Vector3();
+                    box.getSize(boxSize);
+                    scaler.scale.setScalar(30 / boxSize.length());
+                    //position it
+                    let front = getCoordsInFrontOfCamera();
+                    scaler.position.set(front.x, front.y, front.z);
+                    scene.add(scaler);
+                    polyObjects.push(scaler);
+
+                });
+            });
+        }
+
+
+        ///
+        ////DON'T LOOK BELOW HERE, IT ALL ABOUT MOVING THE CAMERA, NOT VERY INTERSTING
+        ///
+        var onMouseDownMouseX = 0, onMouseDownMouseY = 0;
+        var onPointerDownPointerX = 0, onPointerDownPointerY = 0;
+        var lon = 0, onMouseDownLon = 0, lat = 0, onMouseDownLat = 0, phi = 0, theta = 0;
+        var isUserInteracting = false;
+        var myCamera;
+
+        function activatePanoControl(cam) {
+            console.log("activated pano controls");
+            myCamera = cam;  //passing the camera to a variable here makes it easier to reuse this file
+
+            document.addEventListener('mousedown', onDocumentMouseDown, false);
+            document.addEventListener('mousemove', onDocumentMouseMove, false);
+            document.addEventListener('mouseup', onDocumentMouseUp, false);
+            document.addEventListener('wheel', onDocumentMouseWheel, false);
+
+            myCamera.target = new THREE.Vector3(0, 0, 0);
+
+            // Listen for window resize
+            window.addEventListener('resize', onWindowResize, false);
+        }
+        function onDocumentMouseDown(event) {
+            onPointerDownPointerX = event.clientX;
+            onPointerDownPointerY = event.clientY;
+            onPointerDownLon = lon;
+            onPointerDownLat = lat;
+            isUserInteracting = true;
+        }
+
+        function onDocumentMouseMove(event) {
+            if (isUserInteracting) {
+                lon = (onPointerDownPointerX - event.clientX) * 0.1 + onPointerDownLon;
+                lat = (event.clientY - onPointerDownPointerY) * 0.1 + onPointerDownLat;
+                computeCameraOrientation();
+            }
+        }
+
+        function onDocumentMouseUp(event) {
+            isUserInteracting = false;
+            //saveCamera();
+
+        }
+
+        function onDocumentMouseWheel(event) {
+            myCamera.fov += event.deltaY * 0.05;
+            myCamera.updateProjectionMatrix();
+        }
+
+        function computeCameraOrientation() {
+            lat = Math.max(- 85, Math.min(85, lat));
+            phi = THREE.Math.degToRad(90 - lat);
+            theta = THREE.Math.degToRad(lon);
+            myCamera.target.x = 500 * Math.sin(phi) * Math.cos(theta);
+            myCamera.target.y = 500 * Math.cos(phi);
+            myCamera.target.z = 500 * Math.sin(phi) * Math.sin(theta);
+            myCamera.lookAt(myCamera.target);
+            /*
+            // distortion
+            camera3D.position.copy( camera3D.target ).negate();
+            */
+
+        }
+
+        function onWindowResize() {
+            myCamera.aspect = window.innerWidth / window.innerHeight;
+            myCamera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+    </script>
+
+</body>
+
+</html>
