@@ -30,7 +30,7 @@
         }
 
 
-        #mode{
+        #mode {
             background-color: #00000000;
             position: absolute;
             top: 0px;
@@ -92,6 +92,7 @@ without sharing the files for the libaries
 
 
 
+
     <!-- This is the librarie for the google street views which loads and then calls function
 within our code. You get your own api key at the creditial part of https://console.developers.google.com -->
     <script async defer src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBi_F0gaMWtXi8Ngerunlwe1vRFkjy8cdI">
@@ -115,10 +116,11 @@ within our code. You get your own api key at the creditial part of https://conso
         var texts = [];
         primitives = [];
         var planes = [];
-        
+        var allObjects = [];
+
         var modeDir = 0;
-        var modesOfConjuring = ["Text", "Poly", "Runway", "Rest","Setting","Shape"];
-        var modeIndex =3;
+        var modesOfConjuring = ["Text", "Poly", "Runway", "Rest", "Setting", "Shape"];
+        var modeIndex = 3;
         var mode = "Rest";
 
 
@@ -127,9 +129,9 @@ within our code. You get your own api key at the creditial part of https://conso
         var recognizing = false;
 
         var selectedObj;
-        var grabMode = false;
+        let holdMode = false;
 
-        var runwayLiquidPuppet ;
+        var runwayLiquidPuppet;
         //posenet variables
         let myPoseNet;
         let poseNetProxy;
@@ -165,7 +167,7 @@ within our code. You get your own api key at the creditial part of https://conso
         light.position.set(1, 0.75, 0.5);
         scene.add(light);
 
-        function setup(){
+        function setup() {
             //just putting an empty one of these here allows you to use p5 functions
         }
 
@@ -175,7 +177,7 @@ within our code. You get your own api key at the creditial part of https://conso
             startPoseNet();
             startWebSpeech();
             runwayLiquidPuppet = new p5(LiquidGANPuppetP5Instance);
-          // runwayLiquidPuppet.talkToRunway();
+            // runwayLiquidPuppet.talkToRunway();
             //let bodypix = new p5(BodyPixSketch );  //can't use instance with bodypix without dev version of ml5
 
             //use the code in pano_mouse.js to move the camera around, code at bottom
@@ -183,7 +185,7 @@ within our code. You get your own api key at the creditial part of https://conso
 
         }
 
-        function startWebSpeech(){
+        function startWebSpeech() {
             if (!('webkitSpeechRecognition' in window)) {
                 upgrade();
             } else {
@@ -191,15 +193,17 @@ within our code. You get your own api key at the creditial part of https://conso
                 recognition.continuous = true;
                 recognition.interimResults = false;
 
-                recognition.onstart = function() {recognizing =true; console.log('started speech rec') }
-                recognition.onresult =  function (data){
-                    let spoken = data.results[data.results.length-1][0].transcript;
+                recognition.onstart = function () { recognizing = true; console.log('started speech rec') }
+                recognition.onresult = function (data) {
+                    let spoken = data.results[data.results.length - 1][0].transcript;
                     console.log(spoken);
-                    if(spoken == "grab"){
-                        grabMode = true;
-                    //} else if (spoken == "release"){
-                      //  grabMode = false;
+                    if (spoken == "hold") {
+                        holdMode = true;
+
+                    } else if (spoken == "release") {
+                        holdMode = false;
                     }
+                    console.log(holdMode);
                     if (mode == "Text") {
                         //add a word texture
                         createNewText(spoken);
@@ -211,7 +215,7 @@ within our code. You get your own api key at the creditial part of https://conso
                         //  runwayLiquidPuppet.setPuppetSkin(spoken.toLowerCase());
                         runwayLiquidPuppet.talkToRunway();
                         // talkToRunway();
-                        
+
                     } else if (mode == "Setting") {
                         //add a poly object
                         askForLatLong(spoken);
@@ -221,13 +225,17 @@ within our code. You get your own api key at the creditial part of https://conso
                     }
                 }
 
-                recognition.onerror = function(event) {console.log(event); recognizing = false }
-                recognition.onend = function() { recognizing = false; console.log('ended speech rec')  }
+                recognition.onerror = function (event) { recognizing = false; }
+                recognition.onend = function () { recognizing = false; console.log('ended speech rec'); }
                 recognition.start();
+                recognizing == true;
+                //biggest problem is that it times out, so check every 5 seconds to see if it stopped
+                setInterval(function () { if (recognizing == false) { recognition.start(); console.log("restarted voice"); } }, 5000);
+
             }
         }
 
-        function startPoseNet(){
+        function startPoseNet() {
             myPoseNet = new p5(poseNetSketch);
             console.log("Start Up PoseNet")
             //This makes a primitive cube to be a proxy for a point from Posenet
@@ -244,42 +252,63 @@ within our code. You get your own api key at the creditial part of https://conso
             requestAnimationFrame(animate);
 
             let myPoses = myPoseNet.getPoses();
+
             // with an array every time new poses are detected
             if (myPoses.length > 0) {
+                changeModesBasedOnAngleOfEyes(myPoses[0].pose.leftEye.x, myPoses[0].pose.leftEye.y, myPoses[0].pose.rightEye.x, myPoses[0].pose.rightEye.y);
+
+
+
                 //find the right wrist locations from posenet
-                let x = ((640 - myPoses[0].pose.rightWrist.x) - 320)/4;
-                let y = ((480 - myPoses[0].pose.rightWrist.y) - 240)/4;
-        
-                var foundObj = checkIfOverObject(x / 320, y / 240);
+                let x = ((640 - myPoses[0].pose.rightWrist.x) - 320) / 4;
+                let y = ((480 - myPoses[0].pose.rightWrist.y) - 240) / 4;
+                //move the red box around with your hand
                 poseNetProxy.position.x = x;
                 poseNetProxy.position.y = y;
-               
-              
-                let distanceFromHandToNose = dist(myPoses[0].pose.rightWrist.x,myPoses[0].pose.rightWrist.y,myPoses[0].pose.nose.x,myPoses[0].pose.nose.y);
-                if (distanceFromHandToNose < 100 &&   recognizing == false){
-                    console.log("hand near nose");
-                   recognition.start();
+                //normalize 0-640 to -1 to 1
+                var mouse = new THREE.Vector2();
+                mouse.x = (myPoses[0].pose.rightWrist.x / 640) * 2 - 1;
+                mouse.y = - (myPoses[0].pose.rightWrist.y / 480) * 2 + 1;
 
+                checkIfOverObject(mouse.x, mouse.y);
+                // selectedObj in set in "checkIfOver() function"
+
+                if (selectedObj) {
+                    selectedObj.rotation.y += .01;
+                    let distanceBetweenHands = dist(myPoses[0].pose.rightWrist.x, myPoses[0].pose.rightWrist.y, myPoses[0].pose.leftWrist.x, myPoses[0].pose.leftWrist.y);
+
+                    if (distanceBetweenHands < 150 && distanceBetweenHands > 20 && myPoses[0].pose.leftWrist.confidence > 0.2 && myPoses[0].pose.rightWrist.confidence > 0.2) {
+                        //console.log("holding" + selectedObj);
+                        var handInWorld = new THREE.Vector3();
+                        poseNetProxy.getWorldPosition(handInWorld);
+                        selectedObj.position.x = handInWorld.x;
+                        selectedObj.position.y = handInWorld.y;
+                    }
                 }
-            
-                changeModesBasedOnAngleOfEyes( myPoses[0].pose.leftEye.x,myPoses[0].pose.leftEye.y,myPoses[0].pose.rightEye.x,myPoses[0].pose.rightEye.y);
             }
+
+
             //you have to remind three.js that the textures may have changed in other programs
             for (var i = 0; i < textures.length; i++) {
                 textures[i].needsUpdate = true;
             }
 
 
+            /*
+
             //rotate anything that the posenetProxy went over
             if (selectedObj ){
                 selectedObj.rotation.y += .01;
-                console.log(grabMode);
-                if( grabMode){
-                    foundObj.positon.x = poseNetProxy.position.x ;
-                    foundObj.positon.y = poseNetProxy.position.y ;
+                console.log(holdMode);
+                
+                if( holdMode){
+                    console.log("holding");
+                    foundObj.position.x = poseNetProxy.position.x ;
+                    foundObj.position.y = poseNetProxy.position.y ;
                 }
             }
-           
+            */
+
             //TICKLE THE RENDERER
             renderer.render(scene, camera3D);
 
@@ -289,68 +318,57 @@ within our code. You get your own api key at the creditial part of https://conso
         animate();  //like draw you have to kick start and then it calls itself
 
 
-        function changeModesBasedOnAngleOfEyes(leftx,lefty,rightx,righty){
-              //find the angle between the eyes
-              let xDiff = leftx - rightx;
-               let yDiff = lefty - righty;
-                //console.log(yDiff/xDiff);
-                angle = Math.atan2(yDiff, xDiff);
-                //have head tilt change mode 
-                if (angle > 0.3){
-                    modeDir = 0.01;
-                }else if (angle < -0.3){
-                    modeDir = -0.01;
-                }else {
-                    modeDir = 0;
-                }
-                modeIndex = Math.max(0,Math.min(5,modeIndex  + modeDir));
-                let newMode = modesOfConjuring[modeIndex.toFixed(0)];
-                //check if there is a change and make sure speach is listening
-                if(newMode != mode ) {
-                    console.log(newMode);
-                    if (recognizing == false){
-        
-                        recognition.start();
-                        recognizing = true;
-                    }
-                }
-                mode = newMode;
-                document.getElementById("mode").innerHTML = "Mode:" + mode;
-               // console.log(mode);
-        }
+        function changeModesBasedOnAngleOfEyes(leftx, lefty, rightx, righty) {
+            //find the angle between the eyes
+            let xDiff = leftx - rightx;
+            let yDiff = lefty - righty;
+            //console.log(yDiff/xDiff);
+            angle = Math.atan2(yDiff, xDiff);
+            //have head tilt change mode 
+            if (angle > 0.3) {
+                modeDir = 0.01;
+            } else if (angle < -0.3) {
+                modeDir = -0.01;
+            } else {
+                modeDir = 0;
+            }
+            modeIndex = Math.max(0, Math.min(5, modeIndex + modeDir));
+            let newMode = modesOfConjuring[modeIndex.toFixed(0)];
+            //check if there is a change and make sure speach is listening
+            if (newMode != mode) {
+                console.log(newMode);
+                if (recognizing == false) {
 
-        //checks against the list of grabbableMeshes for what you have clicked on to make it the "selectedObject"
-        function onDocumentMouseDownCheckObject(e) {
-            console.log("clicked");
-            checkIfOverObject((event.clientX / renderer.domElement.clientWidth) * 2 - 1, -(event.clientY / renderer.domElement.clientHeight) * 2 + 1);
+                    recognition.start();
+                    recognizing = true;
+                }
+            }
+            mode = newMode;
+            document.getElementById("mode").innerHTML = "Mode:" + mode;
+            // console.log(mode);
         }
 
         //this uses a raycaster to project 3D intersection points from 2D coordinate from mouse or poseNet
         //not the x and y are pos and neg numbers between 0-1 representing distance from center of screen not for example 0-640
         function checkIfOverObject(x, y) {
-            // console.log(selectableMeshes);
-            // console.log(x,y);
             var raycaster = new THREE.Raycaster(); // create once
+            raycaster.near = 10;
+            raycaster.far = 1000;
             var mouse = new THREE.Vector2(); // create once
             mouse.x = x;
             mouse.y = y;
             raycaster.setFromCamera(mouse, camera3D);
-            var intersects = raycaster.intersectObjects(primitives, true);
-            var tempobj;
-            for (var i = 0; i < intersects.length; i++) {
-                var intersection = intersects[i],
-                    tempobj = intersection.object;
-                //break;
+            var intersects = raycaster.intersectObjects(allObjects, true);
+            if (intersects.length > 0) {
+                selectedObj = intersects[0].object;
             }
-            if (tempobj) {
-                selectedObj = tempobj;
-               // console.log("over " + selectedObj);
-            } else {
-                selectedObj = null;
-            }
+            // }else{
+            //     selectedObj = null;
+            // }
             return selectedObj;
-
         }
+
+
         function createPrimitive(which) {
             //This makes a primitive cube
             //Everything follows the same pattern, make geometry, material 
@@ -358,9 +376,9 @@ within our code. You get your own api key at the creditial part of https://conso
             if (which == "sphere") {
                 var geometry = new THREE.SphereGeometry(10, 10, 10);
             } else if (which == "cylinder") {
-                var geometry = new THREE.CylinderGeometry(5, 5, 20, 32 );
+                var geometry = new THREE.CylinderGeometry(5, 5, 20, 32);
             } else if (which == "cone") {
-                var geometry = new THREE.ConeGeometry( 5, 20, 32 );
+                var geometry = new THREE.ConeGeometry(5, 20, 32);
             } else {
                 var geometry = new THREE.BoxGeometry(10, 10, 10);
             }
@@ -371,6 +389,7 @@ within our code. You get your own api key at the creditial part of https://conso
             let front = getCoordsInFrontOfCamera();
             obj.position.set(front.x, front.y, front.z);
             primitives.push(obj);
+            allObjects.push(obj);
         }
 
         function createP5Instance(which) {
@@ -438,6 +457,7 @@ within our code. You get your own api key at the creditial part of https://conso
             mesh.scale.set(10, 10, 10);
             scene.add(mesh);
             texts.push(mesh);
+            allObjects.push(mesh);
 
         }
 
@@ -468,7 +488,7 @@ within our code. You get your own api key at the creditial part of https://conso
                     scaler.position.set(front.x, front.y, front.z);
                     scene.add(scaler);
                     polyObjects.push(scaler);
-
+                    allObjects.push(scaler);
                 });
             });
         }
