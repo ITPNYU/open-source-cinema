@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <script src="https://cdn.jsdelivr.net/npm/p5@1.0.0/lib/p5.min.js"></script>
+
+    <meta charset="utf-8" />
+    <style>
+        html,
+        body {
+            margin: 0;
+            padding: 0;
+        }
+
+        canvas {
+            display: block;
+        }
+    </style>
+</head>
+
+<body>
+
+
+    <script>// ADAPTED FROM: Daniel Shiffman
+        // https://thecodingtrain.com/CodingChallenges/150-runway-rainbows.html
+        // https://youtu.be/vEetoBuHj8g
+        // https://editor.p5js.org/codingtrain/sketches/K6l0JbS6u
+
+        // This sketch requires RunwayML to function
+        // For more see: https://runwayml.com
+        // https://youtu.be/ARnf4ilr9Hcc
+        // https://youtu.be/7btNir5L8Jc
+
+        let rainbow;
+        let vector = [];
+        let lastX;
+        let lastY;
+
+        function setup() {
+            createCanvas(512, 512);
+            for (let i = 0; i < 512; i++) {
+                vector[i] = random(-1, 1);
+            }
+            lastX = mouseX;
+            lastY = mouseY;
+        }
+
+        function mousePressed() {
+            lastX = mouseX;
+            lastY = mouseY;
+        }
+        function mouseReleased() {
+            for (let i = 0; i < 255; i++) {
+                // let i = map(mouseY,0,height, 0,511);
+                let xdiff = mouseX - lastX;
+
+                vector[i] = vector[i] + constrain(map(xdiff, -512, 512, -.1, .1), -1, 1);
+            }
+            for (let i = 256; i < 512; i++) {
+                // let i = map(mouseY,0,height, 0,511);
+
+                let ydiff = mouseY - lastY;
+                vector[i] = vector[i] + constrain(map(ydiff, -512, 512, -.4, .4), -1, 1);
+            }
+            console.log(vector);
+            generateRainbow();
+            lastX = mouseX;
+            lastY = mouseY;
+        }
+
+        function generateRainbow() {
+            // httpPost(path, [datatype], [data], [callback], [errorCallback])
+            console.log(vector);
+            const path = 'http://localhost:8000/query';
+            const data = {
+                z: vector,
+                truncation: 0.9
+            };
+            httpPost(path, 'json', data, gotImage, gotError);
+        }
+
+        function gotError(error) {
+            console.error(error);
+        }
+
+        function gotImage(result) {
+            rainbow = createImg(result.image);
+            rainbow.hide();
+        }
+
+        function draw() {
+            background(220);
+            if (rainbow) {
+                image(rainbow, 0, 0, rainbow.width / 2, rainbow.height / 2);
+            }
+        }
+
+    </script>
+
+</body>
+
+</html>
